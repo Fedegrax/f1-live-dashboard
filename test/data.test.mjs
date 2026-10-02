@@ -73,3 +73,13 @@ test('trace building, resampling and dominance', () => {
   const dom = D.dominance(rs, rs, 10);
   assert.equal(dom.length, 10);
 });
+
+test('stint averages ignore out-laps and slow laps', () => {
+  const st = D.stintStats(M);
+  assert.ok(st.size > 10);
+  let counted = 0;
+  for (const arr of st.values()) for (const a of arr) {
+    if (a.avg != null) { counted++; assert.ok(a.best <= a.avg + 1e-9 && a.n > 0 && a.avg < M.overall.lap.dur * 1.07); }
+  }
+  assert.ok(counted > 20);
+});

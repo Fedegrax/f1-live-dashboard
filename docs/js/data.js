@@ -411,3 +411,21 @@ export function dominance(a, b, parts = 25) {
   }
   return out;
 }
+
+// average / best lap of every stint. Laps slower than `limit` x session best (traffic, cool-down) and out-laps are ignored.
+export function stintStats(M, limit = 1.07) {
+  const ref = M.overall.lap ? M.overall.lap.dur : null;
+  const out = new Map(); // driver -> [{stint, compound, start, end, laps, n, avg, best, ageStart}]
+  for (const [n, stints] of M.stintsBy) {
+    const laps = M.lapsBy.get(n) || [];
+    out.set(n, stints.map(st => {
+      const end = st.lap_end ?? Math.max(st.lap_start, laps.length ? laps[laps.length - 1].lap_number : st.lap_start);
+      const v = laps.filter(l => l.lap_number >= st.lap_start && l.lap_number <= end && l.lap_duration != null && !l.is_pit_out_lap && (ref == null || l.lap_duration <= ref * limit)).map(l => l.lap_duration);
+      return {
+        stint: st.stint_number, compound: st.compound, start: st.lap_start, end, laps: end - st.lap_start + 1, ageStart: st.tyre_age_at_start,
+        n: v.length, avg: v.length ? v.reduce((a, b) => a + b, 0) / v.length : null, best: v.length ? Math.min(...v) : null,
+      };
+    }));
+  }
+  return out;
+}
