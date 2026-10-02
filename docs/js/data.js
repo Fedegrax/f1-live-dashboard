@@ -424,6 +424,7 @@ export function stintStats(M, limit = 1.07) {
       return {
         stint: st.stint_number, compound: st.compound, start: st.lap_start, end, laps: end - st.lap_start + 1, ageStart: st.tyre_age_at_start,
         n: v.length, avg: v.length ? v.reduce((a, b) => a + b, 0) / v.length : null, best: v.length ? Math.min(...v) : null,
+        times: laps.filter(l => l.lap_number >= st.lap_start && l.lap_number <= end && l.lap_duration != null && !l.is_pit_out_lap && (ref == null || l.lap_duration <= ref * limit)).map(l => ({ i: l.lap_number - st.lap_start + 1, lap: l.lap_number, dur: l.lap_duration })),
       };
     }));
   }

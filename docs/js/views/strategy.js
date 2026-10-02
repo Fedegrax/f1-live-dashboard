@@ -1,8 +1,75 @@
 import { S } from '../state.js';
 import { timingRows, maxLap, compoundOf, COMPOUND, stintStats, fmtLap } from '../data.js';
-import { $, esc, drvCell, emptyState, clock } from '../ui.js';
+import { $, h, esc, drvCell, emptyState, clock, upsertChart, axis, cssVar, driverStyle } from '../ui.js';
 
 let root;
+const cmp = { sel: new Set(), touched: false, session: null };
+const keyOf = (n, stint) => `${n}:${stint}`;
+
+function allStints(M) {
+  const stats = stintStats(M);
+  const out = [];
+  for (const [n, arr] of stats) for (const a of arr) out.push({ ...a, num: n, d: M.drv.get(n), key: keyOf(n, a.stint) });
+  return out;
+}
+
+function compare(M) {
+  const list = allStints(M).filter(a => a.avg != null);
+  if (cmp.session !== S.session.session_key) { cmp.session = S.session.session_key; cmp.sel = new Set(); cmp.touched = false; }
+  if (!cmp.touched) {
+    cmp.sel = new Set(list.filter(a => a.n >= 5).sort((a, b) => a.avg - b.avg).slice(0, 8).map(a => a.key));
+    if (!cmp.sel.size) cmp.sel = new Set(list.sort((a, b) => a.avg - b.avg).slice(0, 8).map(a => a.key));
+  }
+  const rerender = () => { cmp.touched = true; compare(M); };
+  const box = $('#cmp-chips', root);
+  const quick = (label, fn) => h('button', { class: 'btn sm', type: 'button', onclick: () => { cmp.sel = new Set(fn()); rerender(); } }, label);
+  const byComp = c => list.filter(a => (a.compound || '').toUpperCase() === c).map(a => a.key);
+  const chips = list.slice().sort((a, b) => a.avg - b.avg).map(a => {
+    const c = compoundOf(a.compound);
+    return h('button', { class: 'dchip', type: 'button', style: `--c:${a.d.color}`, 'aria-pressed': cmp.sel.has(a.key), title: `${a.d.name} · stint ${a.stint} · giri ${a.start}–${a.end}`, onclick: () => { if (cmp.sel.has(a.key)) cmp.sel.delete(a.key); else cmp.sel.add(a.key); rerender(); } },
+      h('i'), `${a.d.acr} S${a.stint}`, h('b', { style: `color:${c.color};font:700 13px var(--font-mono)`, title: c.label }, c.short), h('span', { class: 'num', style: 'font:600 12px var(--font-mono);color:var(--muted)' }, fmtLap(a.avg)));
+  });
+  box.replaceChildren(h('div', { class: 'drvchips', style: 'margin-bottom:8px' },
+    quick('Soft', () => byComp('SOFT')), quick('Medium', () => byComp('MEDIUM')), quick('Hard', () => byComp('HARD')),
+    quick('Più veloci', () => list.filter(a => a.n >= 5).sort((a, b) => a.avg - b.avg).slice(0, 8).map(a => a.key)),
+    quick('Tutti', () => list.map(a => a.key)), quick('Nessuno', () => []),
+    h('span', { class: 'hint' }, 'Ordinati per media, dal più veloce')),
+    h('div', { class: 'drvchips', style: 'max-height:150px;overflow:auto' }, ...chips));
+
+  const chosen = list.filter(a => cmp.sel.has(a.key)).sort((a, b) => a.avg - b.avg);
+  const fastest = chosen.length ? chosen[0].avg : null;
+  upsertChart($('#c-stint-avg', root), {
+    type: 'bar',
+    data: {
+      labels: chosen.map(a => `${a.d.acr} S${a.stint} ${compoundOf(a.compound).short} · ${fmtLap(a.avg)}`),
+      datasets: [{ label: 'Media', data: chosen.map(a => a.avg - fastest), backgroundColor: chosen.map(a => `${a.d.color}cc`), borderColor: chosen.map(a => compoundOf(a.compound).color), borderWidth: 3, borderRadius: 3, barPercentage: 0.75 }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: c => { const a = chosen[c.dataIndex]; return [` Media ${fmtLap(a.avg)}${a.avg !== fastest ? `  (+${(a.avg - fastest).toFixed(3)})` : ''}`, ` Miglior ${fmtLap(a.best)} · ${a.n} giri validi · ${compoundOf(a.compound).label}`]; },
+      } } },
+      scales: {
+        x: axis(chosen.length ? `Distacco dalla media più veloce (${fmtLap(fastest)})` : '', { min: 0, ticks: { color: cssVar('--muted'), callback: v => `+${v.toFixed(1)}` } }),
+        y: axis('', { grid: { display: false } }),
+      },
+    },
+  });
+  upsertChart($('#c-stint-lines', root), {
+    type: 'line',
+    data: { datasets: chosen.map(a => driverStyle(a.d, {
+      label: `${a.d.acr} S${a.stint} · ${fmtLap(a.avg)}`,
+      data: a.times.map(t => ({ x: t.i, y: t.dur, lap: t.lap, comp: a.compound })),
+      pointBackgroundColor: compoundOf(a.compound).color, pointBorderColor: a.d.color, pointBorderWidth: 2, pointRadius: 3,
+      borderDash: chosen.filter(b => b.num === a.num).indexOf(a) > 0 ? [6, 4] : [],
+    })) },
+    options: {
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { title: i => `Giro ${i[0].raw.lap} (${i[0].raw.x}° dello stint)`, label: c => ` ${c.dataset.label.split(' · ')[0]}  ${fmtLap(c.raw.y)}` } } },
+      scales: { x: axis('Giro dello stint', { type: 'linear', ticks: { precision: 0, color: cssVar('--muted') } }), y: axis('Tempo sul giro', { ticks: { color: cssVar('--muted'), callback: v => fmtLap(v) } }) },
+    },
+  });
+}
 
 function timeline(M) {
   const rows = timingRows(M, S.kind);
@@ -72,6 +139,10 @@ export const strategy = {
   mount(el) {
     root = el;
     el.innerHTML = `
+      <section class="card" id="cmp-card" style="margin-bottom:14px"><header><h2>Confronto stint</h2><span class="hint spacer">Scegli gli stint: nome e media sono su ogni pulsante</span></header>
+        <div class="body"><div id="cmp-chips" style="margin-bottom:12px"></div>
+        <div class="grid cols-2"><div><div class="chartbox"><canvas id="c-stint-avg"></canvas></div></div><div><div class="chartbox"><canvas id="c-stint-lines"></canvas></div></div></div>
+        <p class="hint" style="margin-top:8px">Barre: distacco della media dalla più veloce tra gli stint scelti (bordo = mescola, tempo medio nell’etichetta). Linee: tempo giro per giro dentro lo stint. Esclusi out-lap e giri oltre il 107% del best.</p></div></section>
       <div class="grid side">
         <section class="card"><header><h2>Stint e mescole</h2></header><div class="body" id="stints"></div></section>
         <div class="grid">
@@ -88,11 +159,15 @@ export const strategy = {
       $('#cuse', root).innerHTML = '';
       $('#pits', root).innerHTML = '';
       $('#stint-avg', root).innerHTML = '';
+      $('#cmp-card', root).hidden = true;
       return;
     }
     $('#stints', root).innerHTML = timeline(M);
     $('#cuse', root).innerHTML = compoundUse(M);
     $('#pits', root).innerHTML = pitTable(M);
     $('#stint-avg', root).innerHTML = stintTable(M);
+    const any = allStints(M).some(a => a.avg != null);
+    $('#cmp-card', root).hidden = !any;
+    if (any) compare(M);
   },
 };
