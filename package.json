@@ -1,0 +1,13 @@
+{
+  "name": "pitwall-live",
+  "version": "1.0.0",
+  "description": "F1 dashboard: any Grand Prix, any session, tables, charts, telemetry and replay. Static site, data from OpenF1.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test test/*.test.mjs",
+    "snapshot": "node scripts/snapshot-calendar.mjs"
+  },
+  "license": "MIT"
+}

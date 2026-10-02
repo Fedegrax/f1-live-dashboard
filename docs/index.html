@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pitwall Live · Dashboard dati F1</title>
+  <meta name="description" content="Dati F1 per ogni Gran Premio e sessione: classifica, tempi, settori, gomme, telemetria, mappa e replay. Aggiornamento automatico durante le sessioni.">
+  <meta name="theme-color" content="#0a0c10">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0c10'/%3E%3Cpath d='M12 5h8l-5 22H7z' fill='%23ff3d3d'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand"><i></i>Pitwall Live</div>
+      <div class="pickers">
+        <select id="sel-year" aria-label="Stagione"></select>
+        <select id="sel-meeting" aria-label="Gran Premio"></select>
+        <div class="sessions" id="sessions" role="group" aria-label="Sessione"></div>
+      </div>
+      <div class="tools">
+        <button class="btn" id="btn-auto" type="button" aria-pressed="true" title="Passa da solo alla sessione in corso">Auto-live</button>
+        <button class="btn" id="btn-refresh" type="button" title="Ricarica i dati">↻</button>
+        <button class="btn" id="btn-theme" type="button" title="Tema" aria-label="Cambia tema">◐</button>
+        <button class="btn" id="btn-settings" type="button">Account OpenF1</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="banners"></div>
+    <section class="hero" id="hero"></section>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sezioni"></nav>
+    <div id="panels"></div>
+  </main>
+
+  <footer class="foot">
+    Dati da <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (progetto non ufficiale, non affiliato a Formula 1).
+    Senza account i dati di una sessione sono liberi dopo la sua conclusione; durante la diretta servono le credenziali OpenF1.
+    <span id="foot-status"></span>
+  </footer>
+
+  <dialog id="drvdlg">
+    <div class="dh"><h2 id="drvdlg-title"></h2><button class="btn sm" style="margin-left:auto" type="button" id="drvdlg-close">Chiudi</button></div>
+    <div class="db" id="drvdlg-body"></div>
+  </dialog>
+
+  <dialog id="setdlg">
+    <div class="dh"><h2>Account OpenF1</h2><button class="btn sm" style="margin-left:auto" type="button" id="setdlg-close">Chiudi</button></div>
+    <div class="db">
+      <p class="muted" style="margin:0">OpenF1 pubblica i dati <b>in diretta</b> solo agli abbonati. Accedi per vedere tempi, posizioni e telemetria mentre la sessione è in corso e per avere limiti di richieste più alti. Le credenziali restano nel tuo browser e vengono inviate solo a api.openf1.org.</p>
+      <div id="set-state"></div>
+      <form class="stack" id="form-login" autocomplete="on">
+        <label>Email / username<input id="in-user" name="username" autocomplete="username" required></label>
+        <label>Password<input id="in-pass" name="password" type="password" autocomplete="current-password" required></label>
+        <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="in-remember" checked style="width:auto"> Ricorda su questo dispositivo (rinnova il token da solo ogni ora)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Accedi</button><button class="btn" type="button" id="btn-logout">Esci</button></div>
+      </form>
+      <form class="stack" id="form-token">
+        <label>Oppure incolla un access token<input id="in-token" placeholder="eyJ..." autocomplete="off"></label>
+        <div><button class="btn" type="submit">Usa token</button></div>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
