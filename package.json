@@ -6,8 +6,25 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
+    "relay": "node server/server.js",
+    "replay": "node scripts/replay-server.mjs",
     "test": "node --test test/*.test.mjs",
     "snapshot": "node scripts/snapshot-calendar.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fedegrax/f1-live-dashboard-.git"
+  },
+  "keywords": [
+    "formula1",
+    "f1",
+    "telemetry",
+    "dashboard",
+    "openf1",
+    "live-timing"
+  ]
 }

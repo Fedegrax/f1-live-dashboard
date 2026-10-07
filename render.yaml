@@ -1,0 +1,8 @@
+# Render blueprint for the live relay. Free instances sleep when idle, which loses the laps recorded
+# before a visit: use an always-on plan (or any small VPS / your own computer) for race weekends.
+services:
+  - type: web
+    name: pitwall-relay
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health

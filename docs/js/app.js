@@ -2,6 +2,7 @@ import { S, on, emit } from './state.js';
 import * as api from './api.js';
 import { prepare, sessionKind, sessionState, maxLap, fmtLap } from './data.js';
 import { $, $$, h, esc, ensureSelection, chartTheme, dayTime, hhmm, clock } from './ui.js';
+import { t, initI18n, setLang, LANGS, lang, applyStatic } from './i18n.js';
 import { overview } from './views/overview.js';
 import { laps } from './views/laps.js';
 import { sectors } from './views/sectors.js';
@@ -12,7 +13,8 @@ import { map } from './views/map.js';
 import { feed } from './views/feed.js';
 
 const views = [overview, laps, sectors, strategy, race, telemetry, map, feed];
-const FLAG_IT = { GREEN: 'VERDE', YELLOW: 'GIALLA', 'DOUBLE YELLOW': 'DOPPIA GIALLA', RED: 'ROSSA', CHEQUERED: 'A SCACCHI', CLEAR: 'VIA LIBERA', BLUE: 'BLU' };
+const flagName = f => { const k = `flag.${String(f).replace(/ /g, '_')}`; const v = t(k); return v === k ? f : v; };
+const kindLabel = k => { const key = `session.${k.code}`; const v = t(key); return v === key ? k.label : v; };
 let allSessions = [];
 let calendarFallback = null;
 let loadToken = 0;
@@ -39,7 +41,6 @@ function initTheme() {
   $('#btn-theme').addEventListener('click', () => {
     const cur = (() => { try { return localStorage.getItem('f1d.theme') || 'auto'; } catch { return 'auto'; } })();
     applyTheme({ auto: 'light', light: 'dark', dark: 'auto' }[cur]);
-    $('#btn-theme').title = 'Tema';
   });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { chartTheme(); renderActive(); });
 }
@@ -103,7 +104,7 @@ function renderMeetings() {
   sel.innerHTML = '';
   for (const m of S.meetings) {
     const test = /testing/i.test(m.meeting_name);
-    sel.append(h('option', { value: m.meeting_key }, `${test ? 'Test · ' : ''}${m.location || m.country_name} · ${m.meeting_name}${m.is_cancelled ? ' (annullato)' : ''}`));
+    sel.append(h('option', { value: m.meeting_key }, `${test ? `${t('meeting.test')} · ` : ''}${m.location || m.country_name} · ${m.meeting_name}${m.is_cancelled ? ` (${t('meeting.cancelled')})` : ''}`));
   }
 }
 
@@ -327,27 +328,27 @@ function renderHero() {
   const sign = off.startsWith('-') ? -1 : 1;
   const [oh, om] = off.replace(/^[+-]/, '').split(':').map(Number);
   const local = new Date(start + sign * (oh * 60 + om) * 60000).toISOString().slice(11, 16);
-  const pill = S.state === 'live' ? '<span class="status-pill live">Live</span>' : S.state === 'upcoming' ? `<span class="status-pill">Inizia tra <span class="num" id="countdown">${countdown(start - Date.now())}</span></span>` : '<span class="status-pill">Sessione conclusa</span>';
+  const pill = S.state === 'live' ? `<span class="status-pill live">${t('status.live')}</span>` : S.state === 'upcoming' ? `<span class="status-pill">${t('status.startsIn')} <span class="num" id="countdown">${countdown(start - Date.now())}</span></span>` : `<span class="status-pill">${t('status.ended')}</span>`;
   const w = M && M.weather.length ? M.weather[M.weather.length - 1] : null;
   const flagRow = M ? [...M.rc].reverse().find(r => r.category === 'Flag' && (r.scope === 'Track' || r.scope == null)) : null;
-  const flag = flagRow ? (FLAG_IT[flagRow.flag] || flagRow.flag) : null;
+  const flag = flagRow ? flagName(flagRow.flag) : null;
   const chips = [];
-  if (flag) chips.push(chip('Bandiera', flag, 'flag'));
+  if (flag) chips.push(chip(t('chip.flag'), flag, 'flag'));
   if (w) {
-    chips.push(chip('Pista', `${w.track_temperature?.toFixed(1)}°`));
-    chips.push(chip('Aria', `${w.air_temperature?.toFixed(1)}°`));
-    chips.push(chip('Umidità', `${Math.round(w.humidity)}%`));
-    chips.push(chip('Vento', `${w.wind_speed?.toFixed(1)} m/s`));
-    chips.push(chip('Pioggia', w.rainfall ? 'Sì' : 'No'));
+    chips.push(chip(t('chip.track'), `${w.track_temperature?.toFixed(1)}°`));
+    chips.push(chip(t('chip.air'), `${w.air_temperature?.toFixed(1)}°`));
+    chips.push(chip(t('chip.humidity'), `${Math.round(w.humidity)}%`));
+    chips.push(chip(t('chip.wind'), `${w.wind_speed?.toFixed(1)} m/s`));
+    chips.push(chip(t('chip.rain'), w.rainfall ? t('common.yes') : t('common.no')));
   }
   if (M && M.laps.length) {
-    chips.push(chip(S.kind.race ? 'Giro' : 'Giri totali', S.kind.race ? String(maxLap(M)) : String(M.laps.filter(l => l.lap_duration != null).length)));
-    if (M.overall.lap) chips.push(chip('Best sessione', fmtLap(M.overall.lap.dur)));
+    chips.push(chip(S.kind.race ? t('chip.lap') : t('chip.totalLaps'), S.kind.race ? String(maxLap(M)) : String(M.laps.filter(l => l.lap_duration != null).length)));
+    if (M.overall.lap) chips.push(chip(t('chip.best'), fmtLap(M.overall.lap.dur)));
   }
   hero.innerHTML = `
     <div>
       <h1>${esc(m.meeting_name)}</h1>
-      <div class="sub"><span>${esc(m.circuit_short_name || m.location)} · ${esc(m.country_name)}</span><span><b style="color:var(--fg)">${esc(S.kind.label)}</b> · ${esc(dayTime(start))} (ora locale ${local})</span>${usingFallback ? '<span>calendario da copia locale</span>' : ''}</div>
+      <div class="sub"><span>${esc(m.circuit_short_name || m.location)} · ${esc(m.country_name)}</span><span><b style="color:var(--fg)">${esc(kindLabel(S.kind))}</b> · ${esc(dayTime(start))} (${t('hero.local', { time: local })})</span>${usingFallback ? `<span>${t('hero.fallback')}</span>` : ''}</div>
     </div>
     <div>${pill}</div>
     ${chips.length ? `<div class="chips" style="grid-column:1/-1">${chips.join('')}</div>` : ''}`;
@@ -358,16 +359,16 @@ function renderBanners() {
   const a = api.authInfo();
   const out = [];
   const liveRelay = S.state === 'live' && api.relayActive();
-  if (liveRelay) out.push(`<div class="banner info"><p><b>Live dal feed F1.</b> Dati in tempo reale ricevuti dal relay${api.relay.info.partial ? ' (collegato a sessione già iniziata: i giri precedenti non sono disponibili, li trovi su OpenF1 a fine sessione)' : ''}.</p></div>`);
+  if (liveRelay) out.push(`<div class="banner info"><p><b>${t('ban.relay.title')}</b> ${t('ban.relay.text')}${api.relay.info.partial ? ` ${t('ban.relay.partial')}` : ''}</p></div>`);
   const liveBlocked = !liveRelay && (api.status.locked || (S.state === 'live' && !a.loggedIn && S.failed.size >= 4));
   if (liveBlocked) {
     out.push(a.loggedIn
-      ? '<div class="banner err"><p><b>OpenF1 ha rifiutato la richiesta.</b> Il tuo account potrebbe non avere l’abbonamento live oppure il token è scaduto.</p><button class="btn" data-open="settings" type="button">Account</button></div>'
-      : '<div class="banner"><p><b>Diretta bloccata da OpenF1.</b> Durante una sessione i dati live sono riservati agli abbonati; quelli gratuiti compaiono poco dopo la fine. Questa pagina riprova ogni 30 secondi. Con un account OpenF1 vedi tutto in tempo reale.</p><button class="btn primary" data-open="settings" type="button">Accedi a OpenF1</button></div>');
+      ? `<div class="banner err"><p><b>${t('ban.rejected.title')}</b> ${t('ban.rejected.text')}</p><button class="btn" data-open="settings" type="button">${t('ban.account')}</button></div>`
+      : `<div class="banner"><p><b>${t('ban.locked.title')}</b> ${t('ban.locked.text')}</p><button class="btn primary" data-open="settings" type="button">${t('ban.locked.cta')}</button></div>`);
   } else if (S.failed.size >= 4 && api.status.lastError) {
-    out.push(`<div class="banner err"><p><b>Errore di caricamento:</b> ${esc(api.status.lastError)}. Riprovo automaticamente.</p></div>`);
+    out.push(`<div class="banner err"><p><b>${t('ban.error.title')}</b> ${esc(api.status.lastError)}. ${t('ban.error.retry')}</p></div>`);
   }
-  if (usingFallback && !api.status.locked) out.push('<div class="banner info"><p>Non riesco a leggere il calendario da OpenF1: uso la copia salvata nel sito.</p></div>');
+  if (usingFallback && !api.status.locked) out.push(`<div class="banner info"><p>${t('ban.calendar')}</p></div>`);
   box.innerHTML = out.join('');
 }
 
@@ -376,7 +377,7 @@ function renderTabs() {
   nav.innerHTML = '';
   for (const v of views) {
     if (!v.available()) continue;
-    nav.append(h('button', { class: 'tab', role: 'tab', id: `tab-${v.id}`, 'aria-selected': v.id === S.tab, onclick: () => setTab(v.id) }, v.label));
+    nav.append(h('button', { class: 'tab', role: 'tab', id: `tab-${v.id}`, 'aria-selected': v.id === S.tab, onclick: () => setTab(v.id) }, t(`tab.${v.id}`)));
   }
 }
 
@@ -398,7 +399,7 @@ function renderActive() {
   try { v.update(); } catch (e) {
     console.error(e);
     const el = $(`#panel-${v.id}`);
-    if (el) el.insertAdjacentHTML('afterbegin', `<div class="banner err"><p>Errore nella vista: ${esc(e.message)}</p></div>`);
+    if (el) el.insertAdjacentHTML('afterbegin', `<div class="banner err"><p>${t('ban.view')} ${esc(e.message)}</p></div>`);
   }
 }
 
@@ -406,16 +407,30 @@ function renderActive() {
 function renderSettings() {
   const a = api.authInfo();
   $('#set-state').innerHTML = a.loggedIn
-    ? `<div class="banner info"><p>Connesso come <b>${esc(a.user)}</b>. Il token scade alle ${hhmm(a.expires)}${a.remembered ? ' e si rinnova da solo' : ''}.</p></div>`
-    : '<div class="banner"><p>Non sei connesso: limiti di richieste bassi e nessun dato live.</p></div>';
+    ? `<div class="banner info"><p>${t('set.connected', { user: esc(a.user), time: hhmm(a.expires) })}${a.remembered ? ` ${t('set.renews')}` : ''}</p></div>`
+    : `<div class="banner"><p>${t('set.disconnected')}</p></div>`;
+}
+
+function renderRelayState() {
+  const el = $('#relay-state');
+  const r = api.relay;
+  if (!r.url) el.innerHTML = `<div class="banner"><p>${t('set.relay.none')}</p></div>`;
+  else if (!r.ok) el.innerHTML = `<div class="banner err"><p>${t('set.relay.down', { url: esc(r.url) })}</p></div>`;
+  else el.innerHTML = `<div class="banner info"><p>${t('set.relay.ok', { url: esc(r.url), session: esc([r.info.meeting, r.info.sessionName].filter(Boolean).join(' · ') || '–') })}</p></div>`;
+  $('#in-relay').value = r.url || '';
 }
 
 function initSettings() {
   const dlg = $('#setdlg');
-  document.addEventListener('click', e => { if (e.target.closest('[data-open="settings"]')) { renderSettings(); dlg.showModal(); } });
-  $('#btn-settings').addEventListener('click', () => { renderSettings(); dlg.showModal(); });
+  const open = () => { renderSettings(); renderRelayState(); dlg.showModal(); };
+  document.addEventListener('click', e => { if (e.target.closest('[data-open="settings"]')) open(); });
+  $('#btn-settings').addEventListener('click', open);
+  $('#form-relay').addEventListener('submit', async e => { e.preventDefault(); await api.setRelayUrl($('#in-relay').value); renderRelayState(); renderBanners(); if (api.relayActive() && S.state === 'live') loadSession(); });
+  $('#btn-relay-clear').addEventListener('click', async () => { await api.setRelayUrl(''); renderRelayState(); renderBanners(); });
   $('#setdlg-close').addEventListener('click', () => dlg.close());
   $('#drvdlg-close').addEventListener('click', () => $('#drvdlg').close());
+  $('#aboutdlg-close').addEventListener('click', () => $('#aboutdlg').close());
+  $('#btn-about').addEventListener('click', () => { $('#about-body').innerHTML = t('about.body'); $('#aboutdlg').showModal(); });
   $('#form-login').addEventListener('submit', async e => {
     e.preventDefault();
     try {
@@ -439,11 +454,28 @@ function initSettings() {
     loadSession();
   });
   $('#btn-logout').addEventListener('click', () => { api.logout(); renderSettings(); renderBanners(); });
-  for (const d of ['#drvdlg', '#setdlg']) $(d).addEventListener('click', e => { if (e.target === $(d)) $(d).close(); });
+  for (const d of ['#drvdlg', '#setdlg', '#aboutdlg']) $(d).addEventListener('click', e => { if (e.target === $(d)) $(d).close(); });
+}
+
+// ---------- language, donate and footer links ----------
+function initChrome() {
+  const cfg = window.PITWALL || {};
+  const sel = $('#sel-lang');
+  for (const [code, name] of LANGS) sel.append(h('option', { value: code, selected: code === lang }, name));
+  sel.addEventListener('change', () => setLang(sel.value));
+  if (cfg.donateUrl) {
+    for (const id of ['#btn-donate', '#foot-donate-link']) $(id).href = cfg.donateUrl;
+    $('#btn-donate').hidden = false;
+    $('#foot-donate').hidden = false;
+  }
+  if (cfg.repoUrl) { $('#foot-repo').href = cfg.repoUrl; $('#foot-issues').href = `${cfg.repoUrl}/issues`; }
+  if (cfg.relayUrl) { try { if (!localStorage.getItem('f1d.relay')) localStorage.setItem('f1d.relay', cfg.relayUrl); } catch { /* ignore */ } }
 }
 
 // ---------- boot ----------
 async function boot() {
+  await initI18n();
+  initChrome();
   initTheme();
   chartTheme();
   initSettings();
@@ -453,7 +485,7 @@ async function boot() {
     v.mount(panel);
   }
   on('selection', () => renderActive());
-  api.onStatus(() => { renderBanners(); const f = $('#foot-status'); if (f) f.textContent = api.status.lastOk ? ` Ultimo aggiornamento ${clock(api.status.lastOk)}.` : ''; });
+  api.onStatus(() => { renderBanners(); const f = $('#foot-status'); if (f) f.textContent = api.status.lastOk ? t('foot.updated', { time: clock(api.status.lastOk) }) : ''; });
 
   const H = readHash();
   const now = new Date().getFullYear();
@@ -479,7 +511,7 @@ async function boot() {
   await loadYear(year);
   let target = H.s ? allSessions.find(s => s.session_key === H.s) : null;
   if (!target) target = pickDefaultSession();
-  if (!target) { $('#hero').innerHTML = '<div class="empty"><b>Nessuna sessione trovata</b>OpenF1 non restituisce sessioni per questo anno.</div>'; return; }
+  if (!target) { $('#hero').innerHTML = `<div class="empty"><b>${t('empty.noSession.title')}</b>${t('empty.noSession.text')}</div>`; return; }
   const m = S.meetings.find(x => x.meeting_key === target.meeting_key);
   renderTabs();
   selectMeeting(m, target.session_key);

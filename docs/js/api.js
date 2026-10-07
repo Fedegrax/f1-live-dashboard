@@ -56,7 +56,7 @@ export async function login(user, pass, remember) {
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json()).detail || ''; } catch { /* not json */ }
-    throw new ApiError(detail || `Login fallito (${res.status})`, res.status, 'locked');
+    throw new ApiError(detail || `Sign-in failed (${res.status})`, res.status, 'locked');
   }
   const j = await res.json();
   auth = {
@@ -244,10 +244,10 @@ async function fetchJson(url, attempt = 0) {
     res = await fetch(url, { headers });
   } catch (e) {
     release();
-    status.lastError = 'Rete non raggiungibile';
+    status.lastError = 'Network unreachable';
     emit();
     if (attempt < 2) { await sleep(800 * (attempt + 1)); return fetchJson(url, attempt + 1); }
-    throw new ApiError('Rete non raggiungibile', 0, 'network');
+    throw new ApiError('Network unreachable', 0, 'network');
   }
   release();
 
@@ -259,21 +259,21 @@ async function fetchJson(url, attempt = 0) {
       await sleep(ra * 1000);
       return fetchJson(url, attempt + 1);
     }
-    throw new ApiError('Troppe richieste (rate limit)', 429, 'rate');
+    throw new ApiError('Too many requests (rate limit)', 429, 'rate');
   }
   if (res.status === 404) { status.lastOk = Date.now(); return []; }
   if (res.status === 401 || res.status === 403) {
     status.locked = true;
-    status.lastError = 'Dati live riservati agli abbonati OpenF1';
+    status.lastError = 'Live data is reserved for OpenF1 subscribers';
     emit();
-    throw new ApiError('Accesso live non autorizzato', res.status, 'locked');
+    throw new ApiError('Live access not authorised', res.status, 'locked');
   }
-  if (res.status === 422) throw new ApiError('Richiesta troppo grande', 422, 'too-much');
+  if (res.status === 422) throw new ApiError('Request too large', 422, 'too-much');
   if (!res.ok) {
     if (attempt < 2) { await sleep(1000 * (attempt + 1)); return fetchJson(url, attempt + 1); }
-    status.lastError = `Errore server ${res.status}`;
+    status.lastError = `Server error ${res.status}`;
     emit();
-    throw new ApiError(`Errore server ${res.status}`, res.status, 'server');
+    throw new ApiError(`Server error ${res.status}`, res.status, 'server');
   }
   status.locked = false;
   status.lastError = null;

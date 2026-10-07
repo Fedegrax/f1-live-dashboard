@@ -246,3 +246,25 @@ dialog form.stack input { background: var(--surface-2); border: 1px solid var(--
 
 .stat > em { display: block; font-style: normal; font-size: 12px; margin-top: 2px; }
 .chip.flag b { font-size: 15px; white-space: nowrap; }
+
+/* ---------- chrome added for the public release ---------- */
+.tools select.btn { padding: 7px 8px; appearance: none; text-align: center; }
+.btn.donate { background: transparent; border-color: var(--accent); color: var(--accent); font-weight: 600; text-decoration: none; }
+.btn.donate:hover { background: var(--accent); color: var(--accent-ink); }
+.foot { max-width: 1600px; margin: 0 auto; padding: 24px 16px 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: left; }
+.foot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px 40px; }
+.foot-grid p { margin: 6px 0 0; line-height: 1.5; max-width: 52ch; }
+.foot-grid b { color: var(--fg); font: 600 12px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; }
+.foot-grid b.foot-brand { font: 700 18px var(--font-display); letter-spacing: 0.04em; }
+.foot-grid a { color: var(--accent); }
+.linklike { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; font: inherit; }
+dialog .stack-sec { display: grid; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+dialog .stack-sec:last-child { border-bottom: 0; padding-bottom: 0; }
+dialog .stack-sec h3 { margin: 0; font: 700 18px var(--font-display); letter-spacing: 0.05em; text-transform: uppercase; }
+dialog .stack-sec p { margin: 0; }
+dialog code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+dialog form.stack label.check { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; color: var(--fg); font-size: 13px; }
+dialog form.stack label.check input { width: auto; }
+.prose p { margin: 0 0 10px; max-width: 70ch; line-height: 1.55; }
+.tools { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+@media (max-width: 720px) { .tools { width: 100%; } .tools .donate { margin-left: auto; } }
