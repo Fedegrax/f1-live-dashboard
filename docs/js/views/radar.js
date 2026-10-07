@@ -70,6 +70,7 @@ class RadarPanel {
   async setCircuit(meeting) {
     if (!meeting || this.key === meeting.meeting_key) return;
     this.key = meeting.meeting_key;
+    this.circuitKey = meeting.circuit_key;
     const pos = await circuitLatLon(meeting);
     if (!pos) { this.q('summary').textContent = t('rd.err'); return; }
     this.pos = pos;
@@ -96,43 +97,32 @@ class RadarPanel {
 
   areaZoom() { return document.documentElement.dataset.compact === '1' ? 9 : 10; }
 
-  // Track geometry: bundled snapshot first, then OpenStreetMap through a few Overpass mirrors.
-  async trackWays() {
-    const { lat, lon } = this.pos;
-    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  // Official layout (placed on the map by scripts/snapshot-tracks.mjs) for the current circuit
+  async trackEntry() {
     try {
       if (!RadarPanel.bundle) RadarPanel.bundle = await (await fetch('data/tracks.json')).json();
-      if (RadarPanel.bundle[key] && RadarPanel.bundle[key].length) return RadarPanel.bundle[key];
-    } catch { /* offline copy missing */ }
-    try { const c = JSON.parse(localStorage.getItem(`f1d.track.${key}`)); if (c && c.length) return c; } catch { /* ignore */ }
-    const q = `[out:json][timeout:25];way(around:1800,${lat},${lon})["highway"="raceway"];out geom;`;
-    for (const m of ['https://overpass.openstreetmap.fr/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
-      try {
-        const ctl = new AbortController();
-        const timer = setTimeout(() => ctl.abort(), 9000);
-        const res = await fetch(m, { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
-        clearTimeout(timer);
-        if (!res.ok) continue;
-        const ways = ((await res.json()).elements || []).map(e => e.geometry.map(g => [g.lat, g.lon]));
-        if (ways.length) { try { localStorage.setItem(`f1d.track.${key}`, JSON.stringify(ways)); } catch { /* quota */ } return ways; }
-      } catch { /* next mirror */ }
-    }
-    return [];
+      return RadarPanel.bundle[String(this.circuitKey)] || null;
+    } catch { return null; }
   }
 
   async loadTrack() {
     const L = window.L;
-    const ways = await this.trackWays();
+    const entry = await this.trackEntry();
     if (!this.map) return;
     const group = L.featureGroup().addTo(this.map);
-    if (ways.length) {
+    if (entry && entry.lines && entry.lines.length) {
       // dark casing, white edge and a bright core so the circuit reads on any radar colour
       for (const [weight, color, opacity] of [[13, '#000000', 0.6], [9, '#ffffff', 1], [4.5, '#ff2d3d', 1]]) {
-        for (const w of ways) L.polyline(w, { pane: 'trackpane', color, weight, opacity, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(group);
+        for (const w of entry.lines) L.polyline(w, { pane: 'trackpane', color, weight, opacity, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(group);
       }
       this.trackBounds = group.getBounds();
+      // turn numbers, visible when zoomed in
+      this.cornerLayer = L.layerGroup();
+      for (const c of entry.corners || []) L.marker(c.p, { pane: 'trackpane', interactive: false, icon: L.divIcon({ className: 'rd-turn', html: `<b>${c.n}</b>`, iconSize: [20, 20] }) }).addTo(this.cornerLayer);
+      const sync = () => { const show = this.map.getZoom() >= 14; if (show && !this.map.hasLayer(this.cornerLayer)) this.cornerLayer.addTo(this.map); if (!show && this.map.hasLayer(this.cornerLayer)) this.map.removeLayer(this.cornerLayer); };
+      this.map.on('zoomend', sync); sync();
     } else {
-      // street circuit without mapped geometry: highlight the area instead
+      // no layout for this circuit: highlight the area instead
       const c = L.circle([this.pos.lat, this.pos.lon], { pane: 'trackpane', radius: 1400, color: '#ff2d3d', weight: 3, dashArray: '6 6', fillColor: '#ff2d3d', fillOpacity: 0.12, interactive: false }).addTo(group);
       this.trackBounds = c.getBounds();
     }

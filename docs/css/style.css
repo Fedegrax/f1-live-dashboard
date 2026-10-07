@@ -418,3 +418,6 @@ tr.scoring td { background: color-mix(in srgb, var(--good) 7%, transparent); }
 .rd-pulse i { display: block; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ff2d3d; background: rgba(255, 45, 61, 0.18); box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255, 45, 61, 0.9); animation: rdpulse 1.8s ease-out infinite; }
 @keyframes rdpulse { 0% { transform: scale(0.45); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .rd-pulse i { animation: none; opacity: 0.9; transform: scale(0.8); } }
+
+.rd-turn { background: transparent; }
+.rd-turn b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: #111; font: 700 11px var(--font-body); border: 2px solid #ff2d3d; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
