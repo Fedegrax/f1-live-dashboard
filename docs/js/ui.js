@@ -1,4 +1,5 @@
 import { S, emit, on } from './state.js';
+import { t, lang } from './i18n.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -18,9 +19,9 @@ export function h(tag, attrs = {}, ...kids) {
   return e;
 }
 
-export const clock = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-export const hhmm = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-export const dayTime = ms => new Date(ms).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+export const clock = ms => new Date(ms).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+export const hhmm = ms => new Date(ms).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+export const dayTime = ms => new Date(ms).toLocaleString(lang, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 // ---------- charts ----------
 export function chartTheme() {
@@ -89,10 +90,10 @@ export function driverChips(container, { quick = true } = {}) {
   if (quick) {
     const mk = (label, fn) => h('button', { class: 'btn sm', type: 'button', onclick: () => { fn(); S.selTouched = true; emit('selection'); } }, label);
     wrap.append(
-      mk('Top 5', () => setSel(list.slice(0, 5))),
-      mk('Top 10', () => setSel(list.slice(0, 10))),
-      mk('Tutti', () => setSel(list)),
-      mk('Nessuno', () => setSel([])),
+      mk(t('chips.top5'), () => setSel(list.slice(0, 5))),
+      mk(t('chips.top10'), () => setSel(list.slice(0, 10))),
+      mk(t('chips.all'), () => setSel(list)),
+      mk(t('chips.none'), () => setSel([])),
       h('span', { class: 'sep' }),
     );
   }
@@ -169,3 +170,5 @@ export function ramp(t) {
   const b = light ? [6, 70, 120] : [150, 240, 255];
   return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
 }
+
+export const compoundLabel = name => t(`compound.${String(name || 'UNKNOWN').toUpperCase()}`);

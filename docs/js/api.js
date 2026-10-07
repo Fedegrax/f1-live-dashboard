@@ -56,7 +56,7 @@ export async function login(user, pass, remember) {
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json()).detail || ''; } catch { /* not json */ }
-    throw new ApiError(detail || `Login fallito (${res.status})`, res.status, 'locked');
+    throw new ApiError(detail || `Sign-in failed (${res.status})`, res.status, 'locked');
   }
   const j = await res.json();
   auth = {
@@ -155,6 +155,77 @@ async function idbSet(key, value) {
   try { d.transaction('kv', 'readwrite').objectStore('kv').put(value, key); } catch { /* quota */ }
 }
 
+// ---------- live relay ----------
+// A relay (server/server.js) reads the free F1 live feed and serves it with the OpenF1 API shape.
+const LS_RELAY = 'f1d.relay';
+const RELAY_ENDPOINTS = new Set(['drivers', 'laps', 'stints', 'pit', 'position', 'intervals', 'race_control', 'weather', 'team_radio', 'car_data', 'location']);
+export const relay = { url: '', info: null, ok: false, key: null, state: null };
+
+function relayCandidates() {
+  const out = [];
+  try { const p = new URLSearchParams(location.search).get('relay'); if (p) { out.push(p); localStorage.setItem(LS_RELAY, p); } } catch { /* ignore */ }
+  try { const v = localStorage.getItem(LS_RELAY); if (v) out.push(v); } catch { /* ignore */ }
+  if (/^https?:$/.test(location.protocol)) out.push(location.origin);
+  return [...new Set(out.map(u => u.replace(/\/+$/, '')))];
+}
+
+export async function probeRelay(url) {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 4000);
+    const res = await fetch(`${url}/live`, { signal: ctl.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j && j.relay ? j : null;
+  } catch { return null; }
+}
+
+export async function initRelay() {
+  for (const url of relayCandidates()) {
+    const info = await probeRelay(url);
+    if (info) { Object.assign(relay, { url, info, ok: true }); emit(); return true; }
+  }
+  return false;
+}
+
+export async function setRelayUrl(url) {
+  url = (url || '').trim().replace(/\/+$/, '');
+  try { if (url) localStorage.setItem(LS_RELAY, url); else localStorage.removeItem(LS_RELAY); } catch { /* ignore */ }
+  if (!url) { Object.assign(relay, { url: '', info: null, ok: false }); emit(); return null; }
+  const info = await probeRelay(url);
+  Object.assign(relay, { url, info, ok: !!info });
+  emit();
+  return info;
+}
+
+export async function refreshRelay() {
+  if (!relay.url) return;
+  const info = await probeRelay(relay.url);
+  relay.info = info;
+  relay.ok = !!info;
+  emit();
+}
+
+export function setContext(key, state) { relay.key = key; relay.state = state; }
+
+// true when the relay is connected to the session the dashboard is showing
+export const relayActive = () => relay.ok && relay.info && relay.info.connected && relay.info.sessionKey === relay.key && relay.info.counts.drivers > 0;
+
+async function relayGet(endpoint, filters) {
+  const res = await fetch(buildUrl(endpoint, filters).replace('https://api.openf1.org', relay.url));
+  if (res.status === 404) return [];
+  if (!res.ok) throw new ApiError(`Relay ${res.status}`, res.status, res.status === 422 ? 'too-much' : 'server');
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+function relayApplies(endpoint, filters) {
+  if (!relayActive() || !RELAY_ENDPOINTS.has(endpoint)) return false;
+  const sk = filters.find(f => f[0] === 'session_key' && f[1] === '=');
+  return !!sk && Number(sk[2]) === relay.info.sessionKey;
+}
+
 // ---------- requests ----------
 // filters: array of [key, op, value]; op one of '=', '>=', '<=', '>', '<'
 export function buildUrl(endpoint, filters = []) {
@@ -173,10 +244,10 @@ async function fetchJson(url, attempt = 0) {
     res = await fetch(url, { headers });
   } catch (e) {
     release();
-    status.lastError = 'Rete non raggiungibile';
+    status.lastError = 'Network unreachable';
     emit();
     if (attempt < 2) { await sleep(800 * (attempt + 1)); return fetchJson(url, attempt + 1); }
-    throw new ApiError('Rete non raggiungibile', 0, 'network');
+    throw new ApiError('Network unreachable', 0, 'network');
   }
   release();
 
@@ -188,21 +259,21 @@ async function fetchJson(url, attempt = 0) {
       await sleep(ra * 1000);
       return fetchJson(url, attempt + 1);
     }
-    throw new ApiError('Troppe richieste (rate limit)', 429, 'rate');
+    throw new ApiError('Too many requests (rate limit)', 429, 'rate');
   }
   if (res.status === 404) { status.lastOk = Date.now(); return []; }
   if (res.status === 401 || res.status === 403) {
     status.locked = true;
-    status.lastError = 'Dati live riservati agli abbonati OpenF1';
+    status.lastError = 'Live data is reserved for OpenF1 subscribers';
     emit();
-    throw new ApiError('Accesso live non autorizzato', res.status, 'locked');
+    throw new ApiError('Live access not authorised', res.status, 'locked');
   }
-  if (res.status === 422) throw new ApiError('Richiesta troppo grande', 422, 'too-much');
+  if (res.status === 422) throw new ApiError('Request too large', 422, 'too-much');
   if (!res.ok) {
     if (attempt < 2) { await sleep(1000 * (attempt + 1)); return fetchJson(url, attempt + 1); }
-    status.lastError = `Errore server ${res.status}`;
+    status.lastError = `Server error ${res.status}`;
     emit();
-    throw new ApiError(`Errore server ${res.status}`, res.status, 'server');
+    throw new ApiError(`Server error ${res.status}`, res.status, 'server');
   }
   status.locked = false;
   status.lastError = null;
@@ -215,6 +286,22 @@ async function fetchJson(url, attempt = 0) {
 // opts.persist: store in IndexedDB (only for immutable, finished-session data)
 // opts.ttl: ms to reuse the in-memory copy
 export async function get(endpoint, filters = [], opts = {}) {
+  if (relayApplies(endpoint, filters)) {
+    if (relay.state === 'live') {
+      try { return await relayGet(endpoint, filters); } catch { /* fall back to OpenF1 */ }
+    } else if (relay.state === 'finished') {
+      // finished session: OpenF1 has the complete record, the relay only fills the gaps
+      try {
+        const rows = await getDirect(endpoint, filters, opts);
+        if (rows.length) return rows;
+      } catch (e) { if (e.kind !== 'locked') throw e; }
+      return relayGet(endpoint, filters);
+    }
+  }
+  return getDirect(endpoint, filters, opts);
+}
+
+async function getDirect(endpoint, filters, opts) {
   const url = buildUrl(endpoint, filters);
   const hit = mem.get(url);
   if (hit && (opts.persist || (opts.ttl && Date.now() - hit.t < opts.ttl))) return hit.data;

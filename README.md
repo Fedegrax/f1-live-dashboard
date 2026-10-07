@@ -1,66 +1,87 @@
 # Pitwall Live
 
-Dashboard F1 per qualsiasi Gran Premio e sessione (FP1, FP2, FP3, Sprint Quali, Sprint, Qualifiche, Gara).
-Sito statico: nessun server da tenere acceso, i dati arrivano direttamente dal browser da [OpenF1](https://openf1.org).
+Timing, lap analysis, tyre strategy, telemetry and a live track map for every Formula 1 session since 2023.
+Runs in the browser; the optional live relay is a single dependency-free Node file.
 
-## Cosa mostra
+**Languages:** English · Italiano · Español · Français · Deutsch · Português
 
-| Scheda | Contenuto |
+## What you get
+
+| View | Contents |
 |---|---|
-| Classifica | Tower dei tempi: miglior giro, gap, ultimo giro, settori (viola/verde/giallo), gomma ed età, pit, velocità max, Q1/Q2/Q3, griglia. Clic su un pilota per tutti i suoi giri e mini-settori. |
-| Giri & passo | Tempi sul giro per pilota, Δ vs best, distribuzione del passo, degrado gomme con pendenza s/giro. |
-| Settori & velocità | Migliori settori, giro ideale, potenziale, speed trap e intermedi. |
-| Strategia | Stint per mescola, uso gomme, pit stop. |
-| Gara | Posizioni giro per giro, distacco dal leader, griglia vs arrivo (solo Sprint e Gara). |
-| Telemetria | Confronto di due giri: mappa colorata per velocità/marcia/pedali/dominio, velocità, gas, freno, marcia, delta tempo. |
-| Mappa & replay | Posizione di tutte le monoposto sul tracciato, replay con slider e velocità fino a 30×, modalità LIVE. |
-| Direzione gara & meteo | Messaggi e bandiere, temperature, vento, umidità, team radio. |
+| Standings | Timing tower: best/last lap, gaps, sector colours, tyre and age, pit stops, top speed, Q1/Q2/Q3, grid. Click a driver for every lap and mini-sector. |
+| Laps & pace | Lap-time chart, delta modes, pace distribution, tyre degradation by compound or team (optional fuel correction). |
+| Sectors & speed | Best sectors, ideal lap, potential, speed traps and intermediates. |
+| Strategy | Stint timeline with averages, stint comparison, tyre usage, pit stops. |
+| Race | Position chart, gap to leader, grid vs finish (Sprint and Race). |
+| Telemetry | Two-lap comparison: speed, throttle, brake, gear, time delta and a track map coloured by speed, gear, pedals or A/B dominance. |
+| Map & replay | Car positions on track with replay (up to 30×) and a live mode. |
+| Race control & weather | Flags and messages, temperatures, wind, humidity, team radio. |
 
-Durante una sessione la pagina si aggiorna da sola (12 s). "Auto-live" passa da solo alla sessione in corso.
-Lo stato (anno, GP, sessione, scheda) è nell'URL, quindi un link condiviso apre la stessa vista.
+The URL keeps year, Grand Prix, session and view, so a shared link opens the same page.
 
-## Dati live
+## Live data
 
-OpenF1 pubblica i dati **in diretta solo agli abbonati**. Senza account:
+Historical data comes from [OpenF1](https://openf1.org). During a session OpenF1 reserves its live feed for subscribers, so there are two ways to see a session in real time:
 
-- i dati di una sessione sono liberi dopo la sua conclusione, la pagina li prende appena compaiono;
-- durante la sessione compare un avviso e la pagina riprova ogni 30 secondi.
+1. **Live relay (free).** `server/server.js` connects to the same live-timing feed that drives the official F1 timing page, records the session in memory and serves it with the OpenF1 API shape. The dashboard prefers it while a session is live and falls back to OpenF1 afterwards, because OpenF1's record is complete.
+2. **OpenF1 account.** Sign in from *Live access*. Credentials stay in the browser and go only to `api.openf1.org`.
 
-Con un account OpenF1 (menu **Account OpenF1**) tempi, posizioni e telemetria sono in tempo reale e i limiti di richieste salgono.
-Le credenziali restano nel browser e vanno solo a `api.openf1.org`.
+Without either, a session's data becomes available shortly after it ends.
 
-Senza account il client rispetta il limite gratuito (circa 27 richieste al minuto) con una coda interna.
-
-## Pubblicazione 24/7 (GitHub Pages)
-
-Il sito è tutto in `docs/`. Una sola volta:
-
-1. Repository → **Settings → Pages**
-2. **Source**: Deploy from a branch
-3. **Branch**: il branch con questo codice, cartella **/docs**, poi Save
-
-Indirizzo: `https://<utente>.github.io/f1-live-dashboard-/`
-
-## Sviluppo
+### Run the relay
 
 ```sh
-npm start        # http://localhost:8080
-npm test         # test dei calcoli (tempi, classifiche, telemetria) su dati reali di FP1
-npm run snapshot # aggiorna docs/data/calendar.json
+npm run relay            # http://localhost:8080 (also serves the dashboard)
 ```
 
-`docs/data/calendar.json` è una copia del calendario usata se OpenF1 rifiuta le richieste non autenticate durante una diretta.
+Open the dashboard from that address and it finds the relay by itself. To use the relay from a hosted copy of the dashboard, open *Live access* and paste the relay's public URL, or set `relayUrl` in `docs/config.js`.
+
+The relay must be running when a session starts: it records laps as they happen and can't recover earlier ones if it joins late (the dashboard says so). It keeps a copy of the session on disk and resumes after a restart.
+
+Deploy options: any machine that stays on (VPS, Raspberry Pi, your computer), the included `Dockerfile`, or `render.yaml` on an always-on plan. Free tiers that sleep when idle will miss laps. If a cloud host cannot reach the F1 feed, run the relay from a home connection instead.
+
+### Try it without a session
+
+`npm run replay -- <folder with *.jsonStream files> [speed] [port] [startMinute]` plays an archived session back as if it were live, using the F1 static archive files of any past session. `node scripts/replay-check.mjs <folder> <session_key>` replays one and compares every lap with OpenF1 (on the 2026 Malaysia race: 1142 of 1142 laps match).
+
+## Hosting the dashboard
+
+The site is the `docs/` folder: static files, no build step. Serve it with GitHub Pages (*Settings → Pages → Deploy from a branch → /docs*), any static host, or `npm start`.
+
+Edit `docs/config.js` to set the donation link, repository link and default relay.
+
+## Rate limits
+
+Without an account the client keeps to OpenF1's free limits (about 27 requests per minute) with an internal queue and caches finished sessions in the browser.
+
+## Development
+
+```sh
+npm start        # static dashboard on http://localhost:8080
+npm test         # calculations, relay model and translation coverage
+npm run snapshot # refresh docs/data/calendar.json (offline calendar fallback)
+```
 
 ```
-docs/
-  index.html
-  css/style.css
-  js/api.js         client OpenF1: coda, limiti, login, cache IndexedDB
-  js/data.js        calcoli puri (testati)
-  js/app.js         selettori, caricamento, aggiornamento live
-  js/views/*.js     una vista per scheda
-  vendor/           Chart.js
-test/               test e dati di esempio
+docs/            static site
+  js/api.js        OpenF1 / relay client: queue, limits, login, IndexedDB cache
+  js/data.js       pure calculations (tested)
+  js/i18n/*.js     one dictionary per language
+  js/views/*.js    one file per view
+server/          live relay (feed client, model, HTTP)
+scripts/         replay server, replay check, calendar snapshot
+test/            unit tests and sample data
 ```
 
-Progetto non ufficiale, non affiliato a Formula 1.
+### Adding a language
+
+Copy `docs/js/i18n/en.js` to `<code>.js`, translate the values and keep the `{placeholders}`, then add the code to `LANGS` in `docs/js/i18n.js`. `npm test` fails if a key or placeholder is missing.
+
+## Disclaimer
+
+Unofficial project, not affiliated with Formula 1, the FIA or any team. F1, FORMULA ONE, FORMULA 1 and related marks are trademarks of Formula One Licensing B.V. Timing data is provided by OpenF1 and the live-timing feed; check their terms before building on it.
+
+## License
+
+MIT

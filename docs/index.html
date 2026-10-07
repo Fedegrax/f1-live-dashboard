@@ -1,11 +1,14 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pitwall Live · Dashboard dati F1</title>
-  <meta name="description" content="Dati F1 per ogni Gran Premio e sessione: classifica, tempi, settori, gomme, telemetria, mappa e replay. Aggiornamento automatico durante le sessioni.">
+  <title>Pitwall Live · F1 data dashboard</title>
+  <meta name="description" content="Timing, lap analysis, tyre strategy, telemetry and live track map for every Formula 1 session.">
   <meta name="theme-color" content="#0a0c10">
+  <meta property="og:title" content="Pitwall Live">
+  <meta property="og:description" content="Timing, lap analysis, tyre strategy, telemetry and live track map for every Formula 1 session.">
+  <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0c10'/%3E%3Cpath d='M12 5h8l-5 22H7z' fill='%23ff3d3d'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,15 +20,17 @@
     <div class="topbar-in">
       <div class="brand"><i></i>Pitwall Live</div>
       <div class="pickers">
-        <select id="sel-year" aria-label="Stagione"></select>
-        <select id="sel-meeting" aria-label="Gran Premio"></select>
-        <div class="sessions" id="sessions" role="group" aria-label="Sessione"></div>
+        <select id="sel-year" data-i18n-aria="aria.season"></select>
+        <select id="sel-meeting" data-i18n-aria="aria.meeting"></select>
+        <div class="sessions" id="sessions" role="group" data-i18n-aria="aria.session"></div>
       </div>
       <div class="tools">
-        <button class="btn" id="btn-auto" type="button" aria-pressed="true" title="Passa da solo alla sessione in corso">Auto-live</button>
-        <button class="btn" id="btn-refresh" type="button" title="Ricarica i dati">↻</button>
-        <button class="btn" id="btn-theme" type="button" title="Tema" aria-label="Cambia tema">◐</button>
-        <button class="btn" id="btn-settings" type="button">Account OpenF1</button>
+        <button class="btn" id="btn-auto" type="button" aria-pressed="true" data-i18n="btn.auto" data-i18n-title="btn.auto.title"></button>
+        <button class="btn" id="btn-refresh" type="button" data-i18n-title="btn.refresh" aria-label="Refresh">↻</button>
+        <button class="btn" id="btn-theme" type="button" data-i18n-title="btn.theme" aria-label="Theme">◐</button>
+        <select id="sel-lang" class="btn" data-i18n-aria="aria.language"></select>
+        <button class="btn" id="btn-settings" type="button" data-i18n="btn.live"></button>
+        <a class="btn donate" id="btn-donate" href="#" target="_blank" rel="noopener" hidden data-i18n="btn.donate"></a>
       </div>
     </div>
   </header>
@@ -33,39 +38,71 @@
   <main>
     <div id="banners"></div>
     <section class="hero" id="hero"></section>
-    <nav class="tabs" id="tabs" role="tablist" aria-label="Sezioni"></nav>
+    <nav class="tabs" id="tabs" role="tablist" data-i18n-aria="aria.sections"></nav>
     <div id="panels"></div>
   </main>
 
   <footer class="foot">
-    Dati da <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (progetto non ufficiale, non affiliato a Formula 1).
-    Senza account i dati di una sessione sono liberi dopo la sua conclusione; durante la diretta servono le credenziali OpenF1.
-    <span id="foot-status"></span>
+    <div class="foot-grid">
+      <div>
+        <b class="foot-brand">Pitwall Live</b>
+        <p data-i18n="foot.about"></p>
+        <p id="foot-donate" hidden><span data-i18n="foot.donate"></span> <a id="foot-donate-link" href="#" target="_blank" rel="noopener" data-i18n="btn.donate"></a></p>
+      </div>
+      <div>
+        <b data-i18n="foot.data"></b>
+        <p data-i18n-html="foot.sources"></p>
+        <p class="muted" id="foot-status"></p>
+      </div>
+      <div>
+        <b data-i18n="foot.project"></b>
+        <p><a id="foot-repo" href="#" target="_blank" rel="noopener" data-i18n="foot.source"></a> · <a id="foot-issues" href="#" target="_blank" rel="noopener" data-i18n="foot.issues"></a> · <button class="linklike" id="btn-about" type="button" data-i18n="foot.how"></button></p>
+        <p class="muted" data-i18n="foot.disclaimer"></p>
+      </div>
+    </div>
   </footer>
 
   <dialog id="drvdlg">
-    <div class="dh"><h2 id="drvdlg-title"></h2><button class="btn sm" style="margin-left:auto" type="button" id="drvdlg-close">Chiudi</button></div>
+    <div class="dh"><h2 id="drvdlg-title"></h2><button class="btn sm" style="margin-left:auto" type="button" id="drvdlg-close" data-i18n="btn.close"></button></div>
     <div class="db" id="drvdlg-body"></div>
   </dialog>
 
+  <dialog id="aboutdlg">
+    <div class="dh"><h2 data-i18n="about.title"></h2><button class="btn sm" style="margin-left:auto" type="button" id="aboutdlg-close" data-i18n="btn.close"></button></div>
+    <div class="db prose" id="about-body"></div>
+  </dialog>
+
   <dialog id="setdlg">
-    <div class="dh"><h2>Account OpenF1</h2><button class="btn sm" style="margin-left:auto" type="button" id="setdlg-close">Chiudi</button></div>
+    <div class="dh"><h2 data-i18n="set.title"></h2><button class="btn sm" style="margin-left:auto" type="button" id="setdlg-close" data-i18n="btn.close"></button></div>
     <div class="db">
-      <p class="muted" style="margin:0">OpenF1 pubblica i dati <b>in diretta</b> solo agli abbonati. Accedi per vedere tempi, posizioni e telemetria mentre la sessione è in corso e per avere limiti di richieste più alti. Le credenziali restano nel tuo browser e vengono inviate solo a api.openf1.org.</p>
-      <div id="set-state"></div>
-      <form class="stack" id="form-login" autocomplete="on">
-        <label>Email / username<input id="in-user" name="username" autocomplete="username" required></label>
-        <label>Password<input id="in-pass" name="password" type="password" autocomplete="current-password" required></label>
-        <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="in-remember" checked style="width:auto"> Ricorda su questo dispositivo (rinnova il token da solo ogni ora)</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Accedi</button><button class="btn" type="button" id="btn-logout">Esci</button></div>
-      </form>
-      <form class="stack" id="form-token">
-        <label>Oppure incolla un access token<input id="in-token" placeholder="eyJ..." autocomplete="off"></label>
-        <div><button class="btn" type="submit">Usa token</button></div>
-      </form>
+      <section class="stack-sec">
+        <h3 data-i18n="set.relay.title"></h3>
+        <p class="muted" data-i18n-html="set.relay.text"></p>
+        <div id="relay-state"></div>
+        <form class="stack" id="form-relay">
+          <label><span data-i18n="set.relay.url"></span><input id="in-relay" type="url" placeholder="https://your-relay.example.com" autocomplete="off"></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit" data-i18n="set.relay.save"></button><button class="btn" type="button" id="btn-relay-clear" data-i18n="set.relay.clear"></button></div>
+        </form>
+      </section>
+      <section class="stack-sec">
+        <h3 data-i18n="set.of1.title"></h3>
+        <p class="muted" data-i18n="set.of1.text"></p>
+        <div id="set-state"></div>
+        <form class="stack" id="form-login" autocomplete="on">
+          <label><span data-i18n="set.user"></span><input id="in-user" name="username" autocomplete="username" required></label>
+          <label><span data-i18n="set.pass"></span><input id="in-pass" name="password" type="password" autocomplete="current-password" required></label>
+          <label class="check"><input type="checkbox" id="in-remember" checked> <span data-i18n="set.remember"></span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit" data-i18n="set.login"></button><button class="btn" type="button" id="btn-logout" data-i18n="set.logout"></button></div>
+        </form>
+        <form class="stack" id="form-token">
+          <label><span data-i18n="set.token"></span><input id="in-token" placeholder="eyJ..." autocomplete="off"></label>
+          <div><button class="btn" type="submit" data-i18n="set.token.use"></button></div>
+        </form>
+      </section>
     </div>
   </dialog>
 
+  <script src="config.js"></script>
   <script src="vendor/chart.umd.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>

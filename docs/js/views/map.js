@@ -1,6 +1,7 @@
 import { S } from '../state.js';
 import { get, iso } from '../api.js';
 import { lastAtOrBefore, stintAt, compoundOf, fmtLap } from '../data.js';
+import { t } from '../i18n.js';
 import { $, esc, h, fitCanvas, projector, cssVar, clock } from '../ui.js';
 
 let root;
@@ -50,7 +51,7 @@ async function loadChunk(k) {
     R.version++;
     R.error = '';
   } catch (e) {
-    R.error = e.kind === 'locked' ? 'La posizione live delle monoposto è riservata agli abbonati OpenF1 (Impostazioni → Accedi). Il replay è gratuito a sessione conclusa.' : e.message;
+    R.error = e.kind === 'locked' ? t('map.err.locked') : e.message;
   } finally { R.loading.delete(key); }
 }
 
@@ -132,7 +133,7 @@ function draw() {
     R.projKey = key;
   }
   const P = R.proj;
-  if (!P) { ctx.fillStyle = cssVar('--muted'); ctx.font = '14px ' + cssVar('--font-body'); ctx.textAlign = 'center'; ctx.fillText(R.error || 'In attesa dei dati di posizione…', w / 2, hh / 2); return; }
+  if (!P) { ctx.fillStyle = cssVar('--muted'); ctx.font = '14px ' + cssVar('--font-body'); ctx.textAlign = 'center'; ctx.fillText(R.error || t('map.waiting'), w / 2, hh / 2); return; }
   if (R.outline) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const [lw, col] of [[16, cssVar('--line')], [8, cssVar('--surface')]]) {
@@ -151,7 +152,7 @@ function draw() {
     ctx.beginPath(); ctx.arc(x, y, sel ? 8 : 6, 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = cssVar('--fg'); ctx.fillText(d.acr, x + 11, y);
   }
-  if (!live.length) { ctx.fillStyle = cssVar('--muted'); ctx.font = '14px ' + cssVar('--font-body'); ctx.textAlign = 'center'; ctx.fillText(R.loading.size ? 'Carico le posizioni…' : (R.error || 'Nessuna monoposto in pista in questo istante'), w / 2, hh - 24); }
+  if (!live.length) { ctx.fillStyle = cssVar('--muted'); ctx.font = '14px ' + cssVar('--font-body'); ctx.textAlign = 'center'; ctx.fillText(R.loading.size ? t('map.loading') : (R.error || t('map.noCars')), w / 2, hh - 24); }
 }
 
 function ui() {
@@ -159,8 +160,8 @@ function ui() {
   const sl = $('#rp-slider', root);
   sl.min = 0; sl.max = Math.round((hi - lo) / 1000);
   if (document.activeElement !== sl) sl.value = Math.round((R.t - lo) / 1000);
-  $('#rp-time', root).textContent = `${clock(R.t)}  ·  sessione +${Math.max(0, Math.round((R.t - Date.parse(S.session.date_start)) / 60000))} min`;
-  $('#rp-play', root).textContent = R.playing ? '⏸ Pausa' : '▶ Play';
+  $('#rp-time', root).textContent = `${clock(R.t)}  ·  ${t('map.session', { n: Math.max(0, Math.round((R.t - Date.parse(S.session.date_start)) / 60000)) })}`;
+  $('#rp-play', root).textContent = R.playing ? `⏸ ${t('map.pause')}` : `▶ ${t('map.play')}`;
   const lb = $('#rp-live', root);
   lb.hidden = S.state !== 'live';
   lb.setAttribute('aria-pressed', String(R.live));
@@ -182,24 +183,24 @@ function frame(ts) {
 
 export const map = {
   id: 'map',
-  label: 'Mappa & replay',
+  label: 'Map & replay',
   available: () => true,
   mount(el) {
     root = el;
     el.innerHTML = `
       <div class="grid side">
-        <section class="card"><header><h2>Posizione monoposto</h2><span class="hint spacer" id="rp-hint">Replay della sessione o diretta (con account OpenF1)</span></header>
+        <section class="card"><header><h2>${t('map.card.cars')}</h2><span class="hint spacer" id="rp-hint">${t('map.hint')}</span></header>
           <div class="body" style="display:grid;gap:12px">
             <div class="mapwrap mapbox"><canvas id="rp-canvas"></canvas></div>
             <div class="transport">
-              <button class="btn primary" id="rp-play" type="button">▶ Play</button>
-              <select id="rp-speed" aria-label="Velocità"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="30">30×</option></select>
-              <input id="rp-slider" type="range" min="0" max="100" value="0" aria-label="Posizione nella sessione">
-              <button class="btn" id="rp-live" type="button" aria-pressed="false">● LIVE</button>
+              <button class="btn primary" id="rp-play" type="button">▶ ${t('map.play')}</button>
+              <select id="rp-speed" aria-label="${t('map.speed')}"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="30">30×</option></select>
+              <input id="rp-slider" type="range" min="0" max="100" value="0" aria-label="${t('map.slider')}">
+              <button class="btn" id="rp-live" type="button" aria-pressed="false">● ${t('map.live')}</button>
             </div>
             <div class="num muted" id="rp-time"></div>
           </div></section>
-        <section class="card"><header><h2>Ordine di marcia</h2></header><div class="body"><div class="board" id="rp-board"></div></div></section>
+        <section class="card"><header><h2>${t('map.card.order')}</h2></header><div class="body"><div class="board" id="rp-board"></div></div></section>
       </div>`;
     $('#rp-play', el).addEventListener('click', () => { R.live = false; R.playing = !R.playing; R.last = 0; });
     $('#rp-speed', el).addEventListener('change', e => { R.speed = Number(e.target.value); });

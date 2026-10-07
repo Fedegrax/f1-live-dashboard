@@ -1,6 +1,7 @@
 import { S } from '../state.js';
 import { fmtLap, fmtGap, paceStats, degradationPoints, stintAt, compoundOf, COMPOUND } from '../data.js';
-import { $, h, esc, driverChips, selectedDrivers, upsertChart, axis, driverStyle, cssVar, emptyState } from '../ui.js';
+import { $, h, esc, driverChips, selectedDrivers, upsertChart, axis, driverStyle, cssVar, emptyState, compoundLabel } from '../ui.js';
+import { t } from '../i18n.js';
 
 let root;
 const opt = { mode: 'time', limit: 1.15, hideOut: true };
@@ -9,12 +10,12 @@ function controls() {
   const box = $('#lap-controls', root);
   box.innerHTML = '';
   const seg = h('div', { class: 'seg' },
-    ...[['time', 'Tempo'], ['delta', 'Δ vs best assoluto'], ['rel', 'Δ vs proprio best']].map(([k, label]) =>
+    ...[['time', t('laps.mode.time')], ['delta', t('laps.mode.delta')], ['rel', t('laps.mode.rel')]].map(([k, label]) =>
       h('button', { type: 'button', 'aria-pressed': opt.mode === k, onclick: () => { opt.mode = k; controls(); redraw(); } }, label)));
   const sel = h('select', { id: 'lap-limit', onchange: e => { opt.limit = Number(e.target.value); redraw(); } },
-    ...[[1.05, '105%'], [1.07, '107%'], [1.1, '110%'], [1.15, '115%'], [1.3, '130%'], [99, 'Tutti']].map(([v, l]) => h('option', { value: v, selected: v === opt.limit }, l)));
-  const out = h('label', {}, h('input', { type: 'checkbox', id: 'lap-out', checked: opt.hideOut, onchange: e => { opt.hideOut = e.target.checked; redraw(); } }), 'Nascondi out-lap');
-  box.append(seg, h('label', {}, 'Soglia giri lenti', sel), out);
+    ...[[1.05, '105%'], [1.07, '107%'], [1.1, '110%'], [1.15, '115%'], [1.3, '130%'], [99, t('chips.all')]].map(([v, l]) => h('option', { value: v, selected: v === opt.limit }, l)));
+  const out = h('label', {}, h('input', { type: 'checkbox', id: 'lap-out', checked: opt.hideOut, onchange: e => { opt.hideOut = e.target.checked; redraw(); } }), t('laps.hideOut'));
+  box.append(seg, h('label', {}, t('laps.threshold'), sel), out);
 }
 
 function lapChart() {
@@ -47,13 +48,13 @@ function lapChart() {
       plugins: {
         legend: { position: 'top' },
         tooltip: { callbacks: {
-          title: items => `Giro ${items[0].raw.lap}`,
-          label: c => ` ${c.dataset.label}  ${fmtLap(c.raw.dur)}  ${opt.mode !== 'time' ? `(${fmtGap(c.parsed.y, true)})` : ''}  ${c.raw.comp ? compoundOf(c.raw.comp).label : ''}`,
+          title: items => t('hl.lapN', { n: items[0].raw.lap }).replace(/^./, c => c.toUpperCase()),
+          label: c => ` ${c.dataset.label}  ${fmtLap(c.raw.dur)}  ${opt.mode !== 'time' ? `(${fmtGap(c.parsed.y, true)})` : ''}  ${c.raw.comp ? compoundLabel(c.raw.comp) : ''}`,
         } },
       },
       scales: {
-        x: axis('Giro', { type: 'linear', ticks: { precision: 0, color: cssVar('--muted') } }),
-        y: axis(opt.mode === 'time' ? 'Tempo sul giro' : 'Differenza (s)', { ticks: { color: cssVar('--muted'), callback: v => (opt.mode === 'time' ? fmtLap(v) : v.toFixed(1)) } }),
+        x: axis(t('axis.lap'), { type: 'linear', ticks: { precision: 0, color: cssVar('--muted') } }),
+        y: axis(opt.mode === 'time' ? t('dlg.lapTime') : t('laps.axis.diff'), { ticks: { color: cssVar('--muted'), callback: v => (opt.mode === 'time' ? fmtLap(v) : v.toFixed(1)) } }),
       },
     },
   });
@@ -70,15 +71,15 @@ function paceChart() {
     data: {
       labels,
       datasets: [
-        { type: 'bar', label: 'Q1–Q3 (50% dei giri)', data: stats.map(s => [s.q1, s.q3]), backgroundColor: colors.map(c => `${c}99`), borderColor: colors, borderWidth: 2, borderSkipped: false, barPercentage: 0.6 },
-        { type: 'line', label: 'Mediana', data: stats.map(s => s.med), showLine: false, pointStyle: 'rectRot', pointRadius: 6, pointBackgroundColor: cssVar('--fg'), pointBorderColor: cssVar('--bg'), pointBorderWidth: 1 },
-        { type: 'line', label: 'Miglior giro', data: stats.map(s => s.min), showLine: false, pointStyle: 'triangle', pointRadius: 6, pointBackgroundColor: cssVar('--purple'), pointBorderColor: cssVar('--bg') },
+        { type: 'bar', label: t('laps.pace.iqr'), data: stats.map(s => [s.q1, s.q3]), backgroundColor: colors.map(c => `${c}99`), borderColor: colors, borderWidth: 2, borderSkipped: false, barPercentage: 0.6 },
+        { type: 'line', label: t('dlg.median'), data: stats.map(s => s.med), showLine: false, pointStyle: 'rectRot', pointRadius: 6, pointBackgroundColor: cssVar('--fg'), pointBorderColor: cssVar('--bg'), pointBorderWidth: 1 },
+        { type: 'line', label: t('dlg.best'), data: stats.map(s => s.min), showLine: false, pointStyle: 'triangle', pointRadius: 6, pointBackgroundColor: cssVar('--purple'), pointBorderColor: cssVar('--bg') },
       ],
     },
     options: {
       plugins: { tooltip: { callbacks: { label: c => {
         const s = stats[c.dataIndex];
-        if (c.datasetIndex === 0) return ` Q1 ${fmtLap(s.q1)} · Q3 ${fmtLap(s.q3)} (${s.n} giri)`;
+        if (c.datasetIndex === 0) return ` Q1 ${fmtLap(s.q1)} · Q3 ${fmtLap(s.q3)} (${t('laps.nLaps', { n: s.n })})`;
         return ` ${c.dataset.label}: ${fmtLap(c.parsed.y)}`;
       } } } },
       scales: { x: axis(''), y: axis('', { min: stats.length ? Math.floor(Math.min(...stats.map(x => x.min)) - 0.5) : undefined, max: stats.length ? Math.ceil(Math.max(...stats.map(x => x.q3)) + 0.5) : undefined, ticks: { color: cssVar('--muted'), callback: v => fmtLap(v) } }) },
@@ -107,17 +108,17 @@ function degControls() {
   const box = $('#deg-controls', root);
   const teams = [...new Set([...M.drv.values()].filter(d => M.lapsBy.has(d.num) && d.team).map(d => d.team))].sort();
   if (deg.team !== 'sel' && deg.team !== 'all' && !teams.includes(deg.team)) deg.team = 'sel';
-  const team = h('select', { id: 'deg-team', 'aria-label': 'Team', onchange: e => { deg.team = e.target.value; degChart(); } },
-    h('option', { value: 'sel', selected: deg.team === 'sel' }, 'Piloti selezionati'),
-    h('option', { value: 'all', selected: deg.team === 'all' }, 'Tutti i team'),
+  const team = h('select', { id: 'deg-team', 'aria-label': t('laps.deg.team'), onchange: e => { deg.team = e.target.value; degChart(); } },
+    h('option', { value: 'sel', selected: deg.team === 'sel' }, t('laps.deg.selected')),
+    h('option', { value: 'all', selected: deg.team === 'all' }, t('laps.deg.allTeams')),
     ...teams.map(t => h('option', { value: t, selected: deg.team === t }, t)));
-  const comp = h('select', { id: 'deg-comp', 'aria-label': 'Mescola', onchange: e => { deg.comp = e.target.value; degChart(); } },
-    h('option', { value: 'all', selected: deg.comp === 'all' }, 'Tutte le mescole'),
-    ...['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'].map(c => h('option', { value: c, selected: deg.comp === c }, COMPOUND[c].label)));
-  const by = h('div', { class: 'seg' }, ...[['compound', 'Colora per mescola'], ['team', 'Confronta team']].map(([k, l]) =>
+  const comp = h('select', { id: 'deg-comp', 'aria-label': t('laps.deg.compound'), onchange: e => { deg.comp = e.target.value; degChart(); } },
+    h('option', { value: 'all', selected: deg.comp === 'all' }, t('laps.deg.allCompounds')),
+    ...['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'].map(c => h('option', { value: c, selected: deg.comp === c }, compoundLabel(c))));
+  const by = h('div', { class: 'seg' }, ...[['compound', t('laps.deg.byCompound')], ['team', t('laps.deg.byTeam')]].map(([k, l]) =>
     h('button', { type: 'button', 'aria-pressed': deg.by === k, onclick: () => { deg.by = k; degControls(); degChart(); } }, l)));
-  const kids = [h('label', {}, 'Team', team), h('label', {}, 'Mescola', comp), by];
-  if (S.kind.race) kids.push(h('label', {}, h('input', { type: 'checkbox', id: 'deg-fuel', checked: deg.fuel, onchange: e => { deg.fuel = e.target.checked; degChart(); } }), `Correggi carburante (${FUEL_S_PER_LAP} s/giro)`));
+  const kids = [h('label', {}, t('laps.deg.team'), team), h('label', {}, t('laps.deg.compound'), comp), by];
+  if (S.kind.race) kids.push(h('label', {}, h('input', { type: 'checkbox', id: 'deg-fuel', checked: deg.fuel, onchange: e => { deg.fuel = e.target.checked; degChart(); } }), t('laps.deg.fuel', { v: FUEL_S_PER_LAP })));
   box.replaceChildren(...kids);
 }
 
@@ -154,10 +155,10 @@ function degChart() {
   for (const key of order) {
     const pts = groups.get(key);
     const color = deg.by === 'team' ? ([...M.drv.values()].find(d => d.team === key)?.color || '#8a8f98') : COMPOUND[key].color;
-    const label = deg.by === 'team' ? key : COMPOUND[key].label;
+    const label = deg.by === 'team' ? key : compoundLabel(key);
     const reg = fitOf(pts);
     rows.push({ label, color, n: pts.length, slope: reg ? reg.m : null });
-    datasets.push({ label: `${label}${reg ? ` · ${reg.m >= 0 ? '+' : ''}${reg.m.toFixed(3)} s/giro` : ''}`, data: pts, backgroundColor: `${color}cc`, borderColor: color, pointRadius: 4, showLine: false });
+    datasets.push({ label: `${label}${reg ? ` · ${reg.m >= 0 ? '+' : ''}${reg.m.toFixed(3)} ${t('laps.deg.perLap')}` : ''}`, data: pts, backgroundColor: `${color}cc`, borderColor: color, pointRadius: 4, showLine: false });
     if (reg) datasets.push({ label: `fit ${label}`, data: [{ x: reg.x0, y: reg.m * reg.x0 + reg.b }, { x: reg.x1, y: reg.m * reg.x1 + reg.b }], type: 'line', borderColor: color, borderWidth: 2, borderDash: [5, 4], pointRadius: 0, _fit: true });
   }
   upsertChart($('#c-deg', root), {
@@ -166,14 +167,14 @@ function degChart() {
     options: {
       plugins: {
         legend: { labels: { filter: it => !it.text.startsWith('fit ') } },
-        tooltip: { filter: it => !it.dataset._fit, callbacks: { label: c => ` ${c.raw.drv} · giro ${c.raw.lap} · ${fmtLap(c.raw.dur)} (${fmtGap(c.raw.y, true)} dal proprio best)${c.raw.comp ? ` · ${compoundOf(c.raw.comp).label}` : ''}` } },
+        tooltip: { filter: it => !it.dataset._fit, callbacks: { label: c => ` ${c.raw.drv} · giro ${c.raw.lap} · ${fmtLap(c.raw.dur)} (${fmtGap(c.raw.y, true)} dal proprio best)${c.raw.comp ? ` · ${compoundLabel(c.raw.comp)}` : ''}` } },
       },
-      scales: { x: axis('Età gomma (giri)', { ticks: { precision: 0, color: cssVar('--muted') } }), y: axis(deg.fuel && S.kind.race ? 'Δ corretto per carburante (s)' : 'Δ vs proprio miglior giro (s)') },
+      scales: { x: axis(t('laps.deg.age'), { ticks: { precision: 0, color: cssVar('--muted') } }), y: axis(deg.fuel && S.kind.race ? t('laps.deg.yFuel') : t('laps.deg.y')) },
     },
   });
   $('#deg-table', root).innerHTML = rows.length
-    ? `<div class="scroll"><table><thead><tr><th class="l">${deg.by === 'team' ? 'Team' : 'Mescola'}</th><th>Giri</th><th>Degrado s/giro</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l"><span style="color:${esc(r.color)}">●</span> ${esc(r.label)}</td><td>${r.n}</td><td><b>${r.slope == null ? '–' : `${r.slope >= 0 ? '+' : ''}${r.slope.toFixed(3)}`}</b></td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="hint">Nessun giro con questi filtri.</p>';
+    ? `<div class="scroll"><table><thead><tr><th class="l">${deg.by === 'team' ? t('laps.deg.team') : t('laps.deg.compound')}</th><th>${t('tower.laps')}</th><th>${t('laps.deg.col')}</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l"><span style="color:${esc(r.color)}">●</span> ${esc(r.label)}</td><td>${r.n}</td><td><b>${r.slope == null ? '–' : `${r.slope >= 0 ? '+' : ''}${r.slope.toFixed(3)}`}</b></td></tr>`).join('')}</tbody></table></div>`
+    : `<p class="hint">${t('laps.deg.none')}</p>`;
 }
 
 function redraw() {
@@ -186,21 +187,21 @@ function redraw() {
 
 export const laps = {
   id: 'laps',
-  label: 'Giri & passo',
+  label: 'Laps & pace',
   available: () => true,
   mount(el) {
     root = el;
     el.innerHTML = `
       <div class="grid">
-        <section class="card"><header><h2>Piloti</h2></header><div class="body"><div id="lap-chips"></div></div></section>
+        <section class="card"><header><h2>${t('card.drivers')}</h2></header><div class="body"><div id="lap-chips"></div></div></section>
         <div id="lap-empty"></div>
         <div id="lap-grid" class="grid">
-          <section class="card"><header><h2>Tempi sul giro</h2><div class="controls spacer" id="lap-controls"></div></header>
+          <section class="card"><header><h2>${t('laps.card.times')}</h2><div class="controls spacer" id="lap-controls"></div></header>
             <div class="body"><div class="chartbox tall"><canvas id="c-laps"></canvas></div>
-            <p class="hint" style="margin-top:8px">Il riempimento del punto indica la mescola, il bordo la scuderia.</p></div></section>
+            <p class="hint" style="margin-top:8px">${t('laps.hint.points')}</p></div></section>
           <div class="grid cols-2">
-            <section class="card"><header><h2>Distribuzione del passo</h2></header><div class="body"><div class="chartbox"><canvas id="c-pace"></canvas></div><p class="hint" style="margin-top:8px">Giri puliti entro il 107% del best della sessione.</p></div></section>
-            <section class="card"><header><h2>Degrado gomme</h2><div class="controls spacer" id="deg-controls"></div></header><div class="body"><div class="chartbox"><canvas id="c-deg"></canvas></div><p class="hint" style="margin:8px 0">Pendenza in secondi per giro di vita gomma. In gara puoi correggere per il carburante. Un fit richiede almeno 5 giri.</p><div id="deg-table"></div></div></section>
+            <section class="card"><header><h2>${t('laps.card.pace')}</h2></header><div class="body"><div class="chartbox"><canvas id="c-pace"></canvas></div><p class="hint" style="margin-top:8px">${t('laps.hint.pace')}</p></div></section>
+            <section class="card"><header><h2>${t('laps.card.deg')}</h2><div class="controls spacer" id="deg-controls"></div></header><div class="body"><div class="chartbox"><canvas id="c-deg"></canvas></div><p class="hint" style="margin:8px 0">${t('laps.hint.deg')}</p><div id="deg-table"></div></div></section>
           </div>
         </div>
       </div>`;
@@ -210,7 +211,7 @@ export const laps = {
     const M = S.M;
     const has = M && M.laps.length;
     $('#lap-grid', root).hidden = !has;
-    $('#lap-empty', root).innerHTML = has ? '' : `<section class="card">${emptyState('Nessun giro registrato', 'I grafici compaiono appena arrivano i primi tempi.')}</section>`;
+    $('#lap-empty', root).innerHTML = has ? '' : `<section class="card">${emptyState(t('laps.empty.title'), t('laps.empty.text'))}</section>`;
     if (!has) return;
     driverChips($('#lap-chips', root));
     redraw();

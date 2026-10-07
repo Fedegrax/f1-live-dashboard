@@ -1,6 +1,7 @@
 import { S } from '../state.js';
 import { timingRows, fmtLap, fmtGap, fmtSec, compoundOf, sectorState, median, stdev } from '../data.js';
-import { $, esc, drvCell, emptyState, clock, upsertChart, axis, cssVar } from '../ui.js';
+import { $, esc, drvCell, emptyState, clock, upsertChart, axis, cssVar, compoundLabel } from '../ui.js';
+import { t } from '../i18n.js';
 
 let root;
 const SEG = { 2051: 'p', 2049: 'g', 2048: 'y', 2064: 'b' };
@@ -11,7 +12,7 @@ export function flagClass(f) {
 
 function gapText(r, kind) {
   if (kind.race) {
-    if (r.pos === 1) return 'Leader';
+    if (r.pos === 1) return t('tower.leader');
     const g = r.gapLeader;
     if (g == null) return '–';
     return typeof g === 'number' ? fmtGap(g) : esc(g);
@@ -45,15 +46,15 @@ function table(M, kind, rows) {
   const race = kind.race;
   const quali = kind.quali && rows.some(r => r.phases.some(p => p != null));
   const cols = [];
-  cols.push('<th>P</th><th class="l">Pilota</th>');
-  if (race) cols.push('<th>Giri</th><th>Gap leader</th><th>Interv.</th><th>Ultimo</th><th>Miglior</th>');
-  else cols.push('<th>Miglior</th><th>Gap</th><th>Dal prec.</th>');
+  cols.push(`<th>P</th><th class="l">${t('tower.driver')}</th>`);
+  if (race) cols.push(`<th>${t('tower.laps')}</th><th>${t('tower.gapLeader')}</th><th>${t('tower.interval')}</th><th>${t('tower.last')}</th><th>${t('tower.best')}</th>`);
+  else cols.push(`<th>${t('tower.best')}</th><th>${t('tower.gap')}</th><th>${t('tower.prev')}</th>`);
   if (quali) cols.push('<th>Q1</th><th>Q2</th><th>Q3</th>');
-  if (!race) cols.push('<th>Ultimo</th>');
-  cols.push('<th>S1</th><th>S2</th><th>S3</th><th>Gomma</th>');
-  if (!race) cols.push('<th>Giri</th>');
-  cols.push('<th>Pit</th><th>V.max</th>');
-  if (race) cols.push('<th>Griglia</th>');
+  if (!race) cols.push(`<th>${t('tower.last')}</th>`);
+  cols.push(`<th>S1</th><th>S2</th><th>S3</th><th>${t('tower.tyre')}</th>`);
+  if (!race) cols.push(`<th>${t('tower.laps')}</th>`);
+  cols.push(`<th>${t('tower.pit')}</th><th>${t('tower.vmax')}</th>`);
+  if (race) cols.push(`<th>${t('tower.grid')}</th>`);
 
   const body = rows.map(r => {
     const d = r.d;
@@ -81,16 +82,16 @@ function highlights(M, kind, rows) {
   const items = [];
   if (M.overall.lap) {
     const d = M.drv.get(M.overall.lap.driver);
-    items.push(['Giro più veloce', fmtLap(M.overall.lap.dur), `${d.acr} · giro ${M.overall.lap.lap}`]);
+    items.push([t('hl.fastest'), fmtLap(M.overall.lap.dur), `${d.acr} · ${t('hl.lapN', { n: M.overall.lap.lap })}`]);
   }
   if (M.overall.s.every(v => v != null)) {
     const ideal = M.overall.s.reduce((a, b) => a + b, 0);
-    items.push(['Giro ideale (S1+S2+S3)', fmtLap(ideal), M.overall.lap ? `${fmtGap(ideal - M.overall.lap.dur, false)} dal best` : '']);
+    items.push([t('hl.ideal'), fmtLap(ideal), M.overall.lap ? t('hl.vsBest', { gap: fmtGap(ideal - M.overall.lap.dur, false) }) : '']);
   }
   let top = null;
   for (const r of rows) if (r.topSpeed != null && (!top || r.topSpeed > top.topSpeed)) top = r;
-  if (top) items.push(['Velocità massima', `${top.topSpeed} km/h`, top.d.acr]);
-  items.push(['Giri totali', String(M.laps.filter(l => l.lap_duration != null).length), `${rows.filter(r => r.laps > 0).length} piloti in pista`]);
+  if (top) items.push([t('hl.topspeed'), `${top.topSpeed} km/h`, top.d.acr]);
+  items.push([t('hl.totalLaps'), String(M.laps.filter(l => l.lap_duration != null).length), t('hl.onTrack', { n: rows.filter(r => r.laps > 0).length })]);
   return items.map(([k, v, s]) => `<div class="stat"><span>${esc(k)}</span><b>${esc(v)}</b>${s ? `<em class="muted">${esc(s)}</em>` : ''}</div>`).join('');
 }
 
@@ -99,7 +100,7 @@ export function rcList(M, n = 12, filter) {
   if (filter) list = list.filter(filter);
   return list.slice(-n).reverse().map(r => {
     const f = r.flag ? flagClass(r.flag) : (r.category === 'Drs' ? 'DRS' : r.category === 'SafetyCar' ? 'SC' : (r.category || '').slice(0, 7));
-    return `<li><time>${clock(r.t)}</time><span class="flag ${esc(f)}">${esc(f)}</span><span>${esc(r.message)}${r.lap_number ? ` <span class="muted">· giro ${r.lap_number}</span>` : ''}</span></li>`;
+    return `<li><time>${clock(r.t)}</time><span class="flag ${esc(f)}">${esc(f)}</span><span>${esc(r.message)}${r.lap_number ? ` <span class="muted">· ${t('hl.lapN', { n: r.lap_number })}</span>` : ''}</span></li>`;
   }).join('');
 }
 
@@ -115,14 +116,14 @@ export function driverDialog(num) {
   const pb = M.pbSector.get(num) || [];
   const ideal = pb.every(v => v != null) ? pb.reduce((a, b) => a + b, 0) : null;
   const stats = [
-    ['Miglior giro', r?.best ? fmtLap(r.best.dur) : '–'],
-    ['Giro ideale', ideal ? fmtLap(ideal) : '–'],
-    ['Giri', String(laps.length)],
-    ['Mediana', valid.length ? fmtLap(median(valid)) : '–'],
-    ['Costanza (σ)', valid.length > 2 ? `${stdev(valid).toFixed(3)} s` : '–'],
-    ['Pit stop', String((M.pitsBy.get(num) || []).length)],
-    ['V.max trap', r?.topSpeed != null ? `${r.topSpeed} km/h` : '–'],
-    ['Posizione', r ? `P${r.pos}` : '–'],
+    [t('dlg.best'), r?.best ? fmtLap(r.best.dur) : '–'],
+    [t('dlg.ideal'), ideal ? fmtLap(ideal) : '–'],
+    [t('dlg.laps'), String(laps.length)],
+    [t('dlg.median'), valid.length ? fmtLap(median(valid)) : '–'],
+    [t('dlg.consistency'), valid.length > 2 ? `${stdev(valid).toFixed(3)} s` : '–'],
+    [t('dlg.pits'), String((M.pitsBy.get(num) || []).length)],
+    [t('dlg.trap'), r?.topSpeed != null ? `${r.topSpeed} km/h` : '–'],
+    [t('dlg.position'), r ? `P${r.pos}` : '–'],
   ].map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join('');
 
   const lapRows = laps.slice().reverse().map(l => {
@@ -142,33 +143,33 @@ export function driverDialog(num) {
     </div>
     <div class="stat-grid">${stats}</div>
     <div class="chartbox short"><canvas id="drvchart"></canvas></div>
-    <div class="scroll"><table><thead><tr><th>Giro</th><th>Tempo</th><th>S1</th><th>S2</th><th>S3</th><th>ST</th><th>Gomma</th><th class="l">Mini-settori</th></tr></thead><tbody>${lapRows || ''}</tbody></table></div>`;
+    <div class="scroll"><table><thead><tr><th>${t('th.lap')}</th><th>${t('th.time')}</th><th>S1</th><th>S2</th><th>S3</th><th>ST</th><th>${t('tower.tyre')}</th><th class="l">${t('th.mini')}</th></tr></thead><tbody>${lapRows || ''}</tbody></table></div>`;
   $('#drvdlg-title').textContent = d.acr;
   if (!dlg.open) dlg.showModal();
 
   const data = laps.filter(l => l.lap_duration != null && !l.is_pit_out_lap && r?.best && l.lap_duration < r.best.dur * 1.12).map(l => ({ x: l.lap_number, y: l.lap_duration }));
   upsertChart($('#drvchart'), {
     type: 'line',
-    data: { datasets: [{ label: 'Tempo sul giro', data, borderColor: d.color, backgroundColor: d.color, borderWidth: 2, pointRadius: 3, tension: 0 }] },
+    data: { datasets: [{ label: t('dlg.lapTime'), data, borderColor: d.color, backgroundColor: d.color, borderWidth: 2, pointRadius: 3, tension: 0 }] },
     options: {
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtLap(c.parsed.y) } } },
-      scales: { x: axis('Giro', { type: 'linear' }), y: axis('', { ticks: { callback: v => fmtLap(v), color: cssVar('--muted') } }) },
+      scales: { x: axis(t('axis.lap'), { type: 'linear' }), y: axis('', { ticks: { callback: v => fmtLap(v), color: cssVar('--muted') } }) },
     },
   });
 }
 
 export const overview = {
   id: 'overview',
-  label: 'Classifica',
+  label: 'Standings',
   available: () => true,
   mount(el) {
     root = el;
     el.innerHTML = `
       <div class="grid side">
-        <section class="card"><header><h2 id="tower-title">Classifica</h2><span class="hint spacer">Clicca un pilota per il dettaglio giri</span></header><div id="tower"></div></section>
+        <section class="card"><header><h2 id="tower-title">${t('tower.title.times')}</h2><span class="hint spacer">${t('tower.hint')}</span></header><div id="tower"></div></section>
         <div class="grid">
-          <section class="card"><header><h2>Highlights</h2></header><div class="body"><div class="stat-grid" id="hl"></div></div></section>
-          <section class="card"><header><h2>Direzione gara</h2></header><ul class="feed" id="rc-short" style="max-height:340px"></ul></section>
+          <section class="card"><header><h2>${t('card.highlights')}</h2></header><div class="body"><div class="stat-grid" id="hl"></div></div></section>
+          <section class="card"><header><h2>${t('card.raceControl')}</h2></header><ul class="feed" id="rc-short" style="max-height:340px"></ul></section>
         </div>
       </div>`;
     el.addEventListener('click', e => {
@@ -179,17 +180,17 @@ export const overview = {
   update() {
     const M = S.M;
     const tower = $('#tower', root);
-    $('#tower-title', root).textContent = S.kind.race ? 'Classifica gara' : S.kind.quali ? 'Classifica qualifica' : 'Classifica tempi';
-    if (!M) { tower.innerHTML = '<div class="loading">Carico i dati…</div>'; return; }
+    $('#tower-title', root).textContent = S.kind.race ? t('tower.title.race') : S.kind.quali ? t('tower.title.quali') : t('tower.title.times');
+    if (!M) { tower.innerHTML = `<div class="loading">${t('loading')}</div>`; return; }
     const rows = timingRows(M, S.kind);
     if (!rows.length) {
       const up = S.state === 'upcoming';
       const live = S.state === 'live';
-      tower.innerHTML = emptyState(up ? 'Sessione non ancora iniziata' : 'Nessun dato ancora', up ? 'I tempi compaiono qui appena le monoposto escono in pista.' : live ? 'Sessione in corso. Se non compare nulla, OpenF1 sta riservando i dati live agli abbonati: accedi da “Account OpenF1”. La pagina riprova da sola.' : 'OpenF1 non ha ancora pubblicato i dati di questa sessione. La pagina riprova da sola.');
+      tower.innerHTML = emptyState(up ? t('empty.up.title') : t('empty.nodata.title'), up ? t('empty.up.text') : live ? t('empty.live.text') : t('empty.nodata.text'));
     } else {
       tower.innerHTML = table(M, S.kind, rows);
     }
     $('#hl', root).innerHTML = rows.length ? highlights(M, S.kind, rows) : '<div class="muted">–</div>';
-    $('#rc-short', root).innerHTML = M.rc.length ? rcList(M, 14) : '<li><span></span><span></span><span class="muted">Nessun messaggio</span></li>';
+    $('#rc-short', root).innerHTML = M.rc.length ? rcList(M, 14) : `<li><span></span><span></span><span class="muted">${t('rc.none')}</span></li>`;
   },
 };

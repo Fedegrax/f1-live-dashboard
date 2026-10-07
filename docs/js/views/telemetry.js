@@ -1,6 +1,7 @@
 import { S } from '../state.js';
 import { get, iso } from '../api.js';
 import { buildTrace, resample, dominance, fmtLap, fmtGap } from '../data.js';
+import { t } from '../i18n.js';
 import { $, h, esc, upsertChart, axis, cssVar, fitCanvas, projector, ramp } from '../ui.js';
 
 let root;
@@ -26,7 +27,7 @@ function fillSelects() {
     const sel = $(id, root);
     if (n == null) { sel.innerHTML = ''; return; }
     const best = M.best.get(n)?.lap;
-    sel.innerHTML = lapOptions(M, n).map(l => `<option value="${l.lap_number}">Giro ${l.lap_number} · ${fmtLap(l.lap_duration)}${l.lap_number === best ? ' ★' : ''}${l.is_pit_out_lap ? ' (out)' : ''}</option>`).join('');
+    sel.innerHTML = lapOptions(M, n).map(l => `<option value="${l.lap_number}">${t('tl.lapOpt', { n: l.lap_number })} · ${fmtLap(l.lap_duration)}${l.lap_number === best ? ' ★' : ''}${l.is_pit_out_lap ? ` (${t('tl.out')})` : ''}</option>`).join('');
     sel.value = String(val);
   };
   mkDrv('#tl-da', false, T.a?.num);
@@ -48,7 +49,7 @@ function initDefaults() {
 async function loadOne(sel) {
   const M = S.M;
   const lap = (M.lapsBy.get(sel.num) || []).find(l => l.lap_number === sel.lap);
-  if (!lap || lap.t0 == null || lap.lap_duration == null) throw new Error('Giro senza dati temporali');
+  if (!lap || lap.t0 == null || lap.lap_duration == null) throw new Error(t('tl.err.time'));
   const t0 = lap.t0;
   const t1 = lap.t0 + lap.lap_duration * 1000;
   const f = [['session_key', '=', S.session.session_key], ['driver_number', '=', sel.num], ['date', '>=', iso(t0 - 600)], ['date', '<=', iso(t1 + 600)]];
@@ -73,7 +74,7 @@ async function load() {
   } catch (e) {
     if (mine !== T.token) return;
     T.trA = T.trB = T.rsA = T.rsB = null;
-    T.error = e.kind === 'locked' ? 'La telemetria live è riservata agli abbonati OpenF1 (Impostazioni → Accedi).' : e.kind === 'too-much' ? 'Troppi dati richiesti per questo giro.' : e.message || 'Errore nel caricamento';
+    T.error = e.kind === 'locked' ? t('tl.err.locked') : e.kind === 'too-much' ? t('tl.err.big') : e.message || t('tl.err.generic');
   }
   T.busy = false;
   render();
@@ -119,7 +120,7 @@ function makeChart(id, key, title, opts = {}) {
         redrawLinked();
       },
       plugins: { legend: { display: ds.length > 1 || id === '#c-t-speed' }, tooltip: { callbacks: { title: i => `${Math.round(i[0].parsed.x)} m`, label: c => ` ${c.dataset.label}  ${opts.fmt ? opts.fmt(c.parsed.y) : Math.round(c.parsed.y)}` } } },
-      scales: { x: axis('Distanza (m)', { type: 'linear', min: 0, max: len, ticks: { color: cssVar('--muted'), maxTicksLimit: 12 } }), y: axis(title, opts.y || {}) },
+      scales: { x: axis(t('tl.axis.dist'), { type: 'linear', min: 0, max: len, ticks: { color: cssVar('--muted'), maxTicksLimit: 12 } }), y: axis(title, opts.y || {}) },
     },
   });
   return ch;
@@ -137,8 +138,8 @@ function deltaChart() {
     options: {
       interaction: { mode: 'index', intersect: false },
       onHover: (e, _els, chart) => { const v = chart.scales.x.getValueForPixel(e.x); if (v == null) return; T.hover = Math.min(1, Math.max(0, v / len)); redrawLinked(); },
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => `${Math.round(i[0].parsed.x)} m`, label: c => ` ${c.parsed.y >= 0 ? da.acr + ' davanti di' : db.acr + ' davanti di'} ${Math.abs(c.parsed.y).toFixed(3)} s` } } },
-      scales: { x: axis('Distanza (m)', { type: 'linear', min: 0, max: len }), y: axis(`Δ tempo ${db.acr} − ${da.acr} (s)`) },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => `${Math.round(i[0].parsed.x)} m`, label: c => ` ${t('tl.ahead', { d: c.parsed.y >= 0 ? da.acr : db.acr, v: Math.abs(c.parsed.y).toFixed(3) })}` } } },
+      scales: { x: axis(t('tl.axis.dist'), { type: 'linear', min: 0, max: len }), y: axis(t('tl.axis.delta', { b: db.acr, a: da.acr })) },
     },
   });
 }
@@ -200,8 +201,8 @@ function legendFor() {
   let html = '';
   if (T.mode === 'speed') html = `<span>${Math.round(vmin)} km/h</span><span style="display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,${ramp(0)},${ramp(1)})"></span><span>${Math.round(vmax)} km/h</span>`;
   else if (T.mode === 'gear') html = `<span>1ª</span><span style="display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,${ramp(0)},${ramp(1)})"></span><span>8ª</span>`;
-  else if (T.mode === 'pedals') html = `<span><i style="background:${cssVar('--good')}"></i>Gas a fondo</span><span><i style="background:${cssVar('--warn')}"></i>Parzializzazione</span><span><i style="background:${cssVar('--muted')}"></i>Rilascio</span><span><i style="background:${cssVar('--live')}"></i>Freno</span>`;
-  else if (T.mode === 'dom') html = db ? `<span><i style="background:${ca}"></i>${esc(da.acr)} più veloce</span><span><i style="background:${cb}"></i>${esc(db.acr)} più veloce</span>` : '<span>Scegli un secondo pilota per il confronto</span>';
+  else if (T.mode === 'pedals') html = `<span><i style="background:${cssVar('--good')}"></i>${t('tl.full')}</span><span><i style="background:${cssVar('--warn')}"></i>${t('tl.partial')}</span><span><i style="background:${cssVar('--muted')}"></i>${t('tl.lift')}</span><span><i style="background:${cssVar('--live')}"></i>${t('tl.brake')}</span>`;
+  else if (T.mode === 'dom') html = db ? `<span><i style="background:${ca}"></i>${t('tl.faster', { d: esc(da.acr) })}</span><span><i style="background:${cb}"></i>${t('tl.faster', { d: esc(db.acr) })}</span>` : `<span>${t('tl.pickB')}</span>`;
   el.innerHTML = html;
 }
 
@@ -227,11 +228,11 @@ function statsTable() {
   if (T.rsB) { const lb = (M.lapsBy.get(T.b.num) || []).find(l => l.lap_number === T.b.lap); sb = stats(T.rsB, lb); }
   const da = M.drv.get(T.a.num); const db = T.b ? M.drv.get(T.b.num) : null;
   const rows = [
-    ['Tempo', s => fmtLap(s.time)], ['Settore 1', s => s.s[0]?.toFixed(3) ?? '–'], ['Settore 2', s => s.s[1]?.toFixed(3) ?? '–'], ['Settore 3', s => s.s[2]?.toFixed(3) ?? '–'],
-    ['Vel. massima', s => `${Math.round(s.vmax)} km/h`], ['Vel. minima', s => `${Math.round(s.vmin)} km/h`], ['Vel. media', s => `${Math.round(s.vavg)} km/h`],
-    ['Gas a fondo', s => `${s.full.toFixed(0)}%`], ['In frenata', s => `${s.brake.toFixed(0)}%`], ['Staccate', s => String(s.brakes)], ['Cambiate', s => String(s.shifts)],
+    [t('tl.s.time'), s => fmtLap(s.time)], [t('sec.n', { n: 1 }), s => s.s[0]?.toFixed(3) ?? '–'], [t('sec.n', { n: 2 }), s => s.s[1]?.toFixed(3) ?? '–'], [t('sec.n', { n: 3 }), s => s.s[2]?.toFixed(3) ?? '–'],
+    [t('tl.s.vmax'), s => `${Math.round(s.vmax)} km/h`], [t('tl.s.vmin'), s => `${Math.round(s.vmin)} km/h`], [t('tl.s.vavg'), s => `${Math.round(s.vavg)} km/h`],
+    [t('tl.full'), s => `${s.full.toFixed(0)}%`], [t('tl.s.braking'), s => `${s.brake.toFixed(0)}%`], [t('tl.s.brakes'), s => String(s.brakes)], [t('tl.s.shifts'), s => String(s.shifts)],
   ];
-  el.innerHTML = `<div class="scroll"><table><thead><tr><th class="l"></th><th>${esc(da.acr)} · G${T.a.lap}</th>${sb ? `<th>${esc(db.acr)} · G${T.b.lap}</th><th>Δ</th>` : ''}</tr></thead><tbody>${rows.map(([k, f], i) => {
+  el.innerHTML = `<div class="scroll"><table><thead><tr><th class="l"></th><th>${esc(da.acr)} · ${t('tl.lapShort', { n: T.a.lap })}</th>${sb ? `<th>${esc(db.acr)} · ${t('tl.lapShort', { n: T.b.lap })}</th><th>Δ</th>` : ''}</tr></thead><tbody>${rows.map(([k, f], i) => {
     const d = sb && i === 0 ? fmtGap(sb.time - sa.time, true) : sb && i >= 1 && i <= 3 ? fmtGap((sb.s[i - 1] ?? NaN) - (sa.s[i - 1] ?? NaN), true) : '';
     return `<tr><td class="l muted">${k}</td><td>${f(sa)}</td>${sb ? `<td>${f(sb)}</td><td>${d}</td>` : ''}</tr>`;
   }).join('')}</tbody></table></div>`;
@@ -241,12 +242,12 @@ function render() {
   if (!S.M) return;
   const status = $('#tl-status', root);
   $('#tl-main', root).hidden = !T.rsA;
-  status.innerHTML = T.busy ? '<div class="loading">Scarico telemetria…</div>' : T.error ? `<div class="banner err"><p>${esc(T.error)}</p></div>` : T.rsA ? '' : '<div class="empty"><b>Scegli un giro</b>Seleziona pilota e giro per vedere telemetria e mappa.</div>';
+  status.innerHTML = T.busy ? `<div class="loading">${t('tl.loading')}</div>` : T.error ? `<div class="banner err"><p>${esc(T.error)}</p></div>` : T.rsA ? '' : `<div class="empty"><b>${t('tl.pick.title')}</b>${t('tl.pick.text')}</div>`;
   if (!T.rsA) return;
   makeChart('#c-t-speed', 'speed', 'km/h', { y: { min: 0 } });
-  makeChart('#c-t-throttle', 'throttle', 'Acceleratore %', { y: { min: 0, max: 100 } });
-  makeChart('#c-t-brake', 'brake', 'Freno', { stepped: true, y: { min: 0, max: 100, ticks: { callback: v => (v === 100 ? 'ON' : v === 0 ? 'OFF' : '') } }, fmt: v => (v > 0 ? 'ON' : 'OFF') });
-  makeChart('#c-t-gear', 'gear', 'Marcia', { stepped: true, y: { min: 0, max: 9, ticks: { stepSize: 1 } } });
+  makeChart('#c-t-throttle', 'throttle', t('tl.throttle') + ' %', { y: { min: 0, max: 100 } });
+  makeChart('#c-t-brake', 'brake', t('tl.brake'), { stepped: true, y: { min: 0, max: 100, ticks: { callback: v => (v === 100 ? 'ON' : v === 0 ? 'OFF' : '') } }, fmt: v => (v > 0 ? 'ON' : 'OFF') });
+  makeChart('#c-t-gear', 'gear', t('tl.gear'), { stepped: true, y: { min: 0, max: 9, ticks: { stepSize: 1 } } });
   deltaChart();
   $('#tl-delta-card', root).hidden = !T.rsB;
   legendFor(); statsTable(); drawMap();
@@ -260,28 +261,28 @@ export const telemetry = {
     root = el;
     el.innerHTML = `
       <div class="grid">
-        <section class="card"><header><h2>Confronto giri</h2></header>
+        <section class="card"><header><h2>${t('tl.card.compare')}</h2></header>
           <div class="body"><div class="controls">
-            <label>Pilota A <select id="tl-da"></select></label><label>Giro <select id="tl-la"></select></label>
+            <label>${t('tl.driverA')} <select id="tl-da"></select></label><label>${t('th.lap')} <select id="tl-la"></select></label>
             <span class="sep"></span>
-            <label>Pilota B <select id="tl-db"></select></label><label>Giro <select id="tl-lb"></select></label>
+            <label>${t('tl.driverB')} <select id="tl-db"></select></label><label>${t('th.lap')} <select id="tl-lb"></select></label>
           </div></div></section>
         <div id="tl-status"></div>
         <div id="tl-main" class="grid" hidden>
           <div class="grid side">
-            <section class="card"><header><h2>Mappa del giro</h2>
+            <section class="card"><header><h2>${t('tl.card.map')}</h2>
               <div class="seg spacer" id="tl-mode">
-                <button type="button" data-m="speed" aria-pressed="true">Velocità</button><button type="button" data-m="gear" aria-pressed="false">Marcia</button><button type="button" data-m="pedals" aria-pressed="false">Pedali</button><button type="button" data-m="dom" aria-pressed="false">Dominio A/B</button>
+                <button type="button" data-m="speed" aria-pressed="true">${t('tl.speed')}</button><button type="button" data-m="gear" aria-pressed="false">${t('tl.gear')}</button><button type="button" data-m="pedals" aria-pressed="false">${t('tl.pedals')}</button><button type="button" data-m="dom" aria-pressed="false">${t('tl.dominance')}</button>
               </div></header>
               <div class="body"><div class="mapwrap mapbox sm"><canvas id="tl-map"></canvas></div><div class="legend" id="tl-legend" style="margin-top:10px"></div></div></section>
-            <section class="card"><header><h2>Numeri del giro</h2></header><div id="tl-stats"></div></section>
+            <section class="card"><header><h2>${t('tl.card.numbers')}</h2></header><div id="tl-stats"></div></section>
           </div>
-          <section class="card"><header><h2>Velocità</h2><span class="hint spacer">Passa il mouse sul grafico: il punto si muove sulla mappa</span></header><div class="body"><div class="chartbox"><canvas id="c-t-speed"></canvas></div></div></section>
-          <section class="card" id="tl-delta-card"><header><h2>Delta tempo</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-delta"></canvas></div></div></section>
+          <section class="card"><header><h2>${t('tl.speed')}</h2><span class="hint spacer">${t('tl.hint.hover')}</span></header><div class="body"><div class="chartbox"><canvas id="c-t-speed"></canvas></div></div></section>
+          <section class="card" id="tl-delta-card"><header><h2>${t('tl.card.delta')}</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-delta"></canvas></div></div></section>
           <div class="grid cols-3">
-            <section class="card"><header><h2>Acceleratore</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-throttle"></canvas></div></div></section>
-            <section class="card"><header><h2>Freno</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-brake"></canvas></div></div></section>
-            <section class="card"><header><h2>Marcia</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-gear"></canvas></div></div></section>
+            <section class="card"><header><h2>${t('tl.throttle')}</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-throttle"></canvas></div></div></section>
+            <section class="card"><header><h2>${t('tl.brake')}</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-brake"></canvas></div></div></section>
+            <section class="card"><header><h2>${t('tl.gear')}</h2></header><div class="body"><div class="chartbox short"><canvas id="c-t-gear"></canvas></div></div></section>
           </div>
         </div>
       </div>`;
@@ -319,7 +320,7 @@ export const telemetry = {
   },
   update() {
     const M = S.M;
-    if (!M || !M.laps.length) { $('#tl-status', root).innerHTML = '<div class="empty"><b>Nessun giro disponibile</b>La telemetria si sblocca dopo i primi giri.</div>'; $('#tl-main', root).hidden = true; return; }
+    if (!M || !M.laps.length) { $('#tl-status', root).innerHTML = `<div class="empty"><b>${t('tl.empty.title')}</b>${t('tl.empty.text')}</div>`; $('#tl-main', root).hidden = true; return; }
     if (T.initFor !== S.session.session_key) {
       T.trA = T.trB = T.rsA = T.rsB = null; T.error = '';
       if (initDefaults()) { fillSelects(); load(); }
