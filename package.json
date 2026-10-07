@@ -9,7 +9,8 @@
     "relay": "node server/server.js",
     "replay": "node scripts/replay-server.mjs",
     "test": "node --test test/*.test.mjs",
-    "snapshot": "node scripts/snapshot-calendar.mjs"
+    "snapshot": "node scripts/snapshot-calendar.mjs",
+    "snapshot-tracks": "node scripts/snapshot-tracks.mjs"
   },
   "license": "MIT",
   "engines": {

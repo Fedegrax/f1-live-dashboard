@@ -56,6 +56,8 @@ Deploy options: any machine that stays on (VPS, Raspberry Pi, your computer), th
 
 The site is the `docs/` folder: static files, no build step. Serve it with GitHub Pages (*Settings → Pages → Deploy from a branch → /docs*), any static host, or `npm start`.
 
+Circuit outlines on the radar are the official F1 layouts placed on the map by `npm run snapshot-tracks` (fitted onto OpenStreetMap roads, turn numbers included).
+
 Edit `docs/config.js` to set the donation link, repository link and default relay.
 
 ## Rate limits
