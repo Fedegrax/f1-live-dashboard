@@ -11,10 +11,11 @@ export const S = {
   M: null,
   sel: new Set(), // selected driver numbers (shared across tabs)
   selTouched: false,
-  tab: 'overview',
+  tab: 'dashboard',
   auto: true,
   loading: new Set(),
   failed: new Set(),
+  champ: {},
 };
 
 const handlers = {};

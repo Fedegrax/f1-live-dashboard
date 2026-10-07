@@ -83,3 +83,19 @@ test('stint averages ignore out-laps and slow laps', () => {
   }
   assert.ok(counted > 20);
 });
+
+test('championship projection adds race points and reorders the table', () => {
+  const drivers = new Map([[1, { num: 1, acr: 'AAA', team: 'Alpha', color: '#f00' }], [2, { num: 2, acr: 'BBB', team: 'Beta', color: '#0f0' }], [3, { num: 3, acr: 'CCC', team: 'Alpha', color: '#f00' }]]);
+  const base = [{ driver_number: 1, points_current: 100 }, { driver_number: 2, points_current: 90 }, { driver_number: 3, points_current: 10 }];
+  const baseTeams = [{ team_name: 'Alpha', points_current: 110 }, { team_name: 'Beta', points_current: 90 }];
+  const rows = [{ num: 2, status: '' }, { num: 3, status: '' }, { num: 1, status: 'DNF' }];
+  const ch = D.buildChampionship({ base, baseTeams, rows, kind: { code: 'GP' }, drivers });
+  assert.deepEqual(ch.drivers.map(r => [r.num, r.total, r.gain]), [[2, 115, 25], [1, 100, 0], [3, 28, 18]]);
+  assert.equal(ch.drivers[0].posStart, 2);
+  assert.deepEqual(ch.teams.map(t => [t.name, t.total]), [['Beta', 115], ['Alpha', 128]].sort((a, b) => b[1] - a[1]));
+  const none = D.buildChampionship({ base, rows, kind: { code: 'FP1' }, drivers });
+  assert.equal(none.awards, false);
+  assert.deepEqual(none.drivers.map(r => r.gain), [0, 0, 0]);
+  const off = D.buildChampionship({ base, rows, kind: { code: 'GP' }, drivers, official: [{ driver_number: 1, points_start: 100, points_current: 118 }] });
+  assert.equal(off.drivers[0].total, 118);
+});

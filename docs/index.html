@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Pitwall Live · F1 data dashboard</title>
   <meta name="description" content="Timing, lap analysis, tyre strategy, telemetry and live track map for every Formula 1 session.">
   <meta name="theme-color" content="#0a0c10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pitwall">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta property="og:title" content="Pitwall Live">
   <meta property="og:description" content="Timing, lap analysis, tyre strategy, telemetry and live track map for every Formula 1 session.">
   <meta property="og:type" content="website">
@@ -13,19 +19,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="vendor/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><i></i>Pitwall Live</div>
-      <div class="pickers">
+      <div class="brand"><i></i>Pitwall<span class="brand-live">&nbsp;Live</span></div>
+      <button class="btn menu-toggle" id="btn-menu" type="button" aria-expanded="false" aria-controls="topmenu" data-i18n="btn.menu"></button>
+      <div class="pickers" id="topmenu">
         <select id="sel-year" data-i18n-aria="aria.season"></select>
         <select id="sel-meeting" data-i18n-aria="aria.meeting"></select>
-        <div class="sessions" id="sessions" role="group" data-i18n-aria="aria.session"></div>
       </div>
-      <div class="tools">
+      <div class="sessions" id="sessions" role="group" data-i18n-aria="aria.session"></div>
+      <div class="tools" id="toolmenu">
         <button class="btn" id="btn-auto" type="button" aria-pressed="true" data-i18n="btn.auto" data-i18n-title="btn.auto.title"></button>
+        <button class="btn" id="btn-compact" type="button" aria-pressed="false" data-i18n="btn.compact" data-i18n-title="btn.compact.title"></button>
+        <button class="btn" id="btn-wake" type="button" aria-pressed="false" hidden data-i18n="btn.wake"></button>
         <button class="btn" id="btn-refresh" type="button" data-i18n-title="btn.refresh" aria-label="Refresh">↻</button>
         <button class="btn" id="btn-theme" type="button" data-i18n-title="btn.theme" aria-label="Theme">◐</button>
         <select id="sel-lang" class="btn" data-i18n-aria="aria.language"></select>
@@ -104,6 +114,7 @@
 
   <script src="config.js"></script>
   <script src="vendor/chart.umd.min.js"></script>
+  <script src="vendor/leaflet.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

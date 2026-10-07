@@ -46,6 +46,12 @@ function renderRc() {
   $('#rc-full', root).innerHTML = M.rc.length ? rcList(M, 200, f) : `<li><span></span><span></span><span class="muted">${t('rc.none')}</span></li>`;
 }
 
+export function renderWidget(el) {
+  const prev = root;
+  root = el;
+  try { if (S.M && S.M.weather.length) weatherCharts(); } finally { root = prev; }
+}
+
 export const feed = {
   id: 'feed',
   label: 'Direzione gara & meteo',

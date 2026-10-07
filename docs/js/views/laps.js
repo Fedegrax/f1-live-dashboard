@@ -2,6 +2,7 @@ import { S } from '../state.js';
 import { fmtLap, fmtGap, paceStats, degradationPoints, stintAt, compoundOf, COMPOUND } from '../data.js';
 import { $, h, esc, driverChips, selectedDrivers, upsertChart, axis, driverStyle, cssVar, emptyState, compoundLabel } from '../ui.js';
 import { t } from '../i18n.js';
+import { emit } from '../state.js';
 
 let root;
 const opt = { mode: 'time', limit: 1.15, hideOut: true };
@@ -11,10 +12,10 @@ function controls() {
   box.innerHTML = '';
   const seg = h('div', { class: 'seg' },
     ...[['time', t('laps.mode.time')], ['delta', t('laps.mode.delta')], ['rel', t('laps.mode.rel')]].map(([k, label]) =>
-      h('button', { type: 'button', 'aria-pressed': opt.mode === k, onclick: () => { opt.mode = k; controls(); redraw(); } }, label)));
-  const sel = h('select', { id: 'lap-limit', onchange: e => { opt.limit = Number(e.target.value); redraw(); } },
+      h('button', { type: 'button', 'aria-pressed': opt.mode === k, onclick: () => { opt.mode = k; changed(); } }, label)));
+  const sel = h('select', { id: 'lap-limit', onchange: e => { opt.limit = Number(e.target.value); changed(); } },
     ...[[1.05, '105%'], [1.07, '107%'], [1.1, '110%'], [1.15, '115%'], [1.3, '130%'], [99, t('chips.all')]].map(([v, l]) => h('option', { value: v, selected: v === opt.limit }, l)));
-  const out = h('label', {}, h('input', { type: 'checkbox', id: 'lap-out', checked: opt.hideOut, onchange: e => { opt.hideOut = e.target.checked; redraw(); } }), t('laps.hideOut'));
+  const out = h('label', {}, h('input', { type: 'checkbox', id: 'lap-out', checked: opt.hideOut, onchange: e => { opt.hideOut = e.target.checked; changed(); } }), t('laps.hideOut'));
   box.append(seg, h('label', {}, t('laps.threshold'), sel), out);
 }
 
@@ -108,17 +109,17 @@ function degControls() {
   const box = $('#deg-controls', root);
   const teams = [...new Set([...M.drv.values()].filter(d => M.lapsBy.has(d.num) && d.team).map(d => d.team))].sort();
   if (deg.team !== 'sel' && deg.team !== 'all' && !teams.includes(deg.team)) deg.team = 'sel';
-  const team = h('select', { id: 'deg-team', 'aria-label': t('laps.deg.team'), onchange: e => { deg.team = e.target.value; degChart(); } },
+  const team = h('select', { id: 'deg-team', 'aria-label': t('laps.deg.team'), onchange: e => { deg.team = e.target.value; changed(); } },
     h('option', { value: 'sel', selected: deg.team === 'sel' }, t('laps.deg.selected')),
     h('option', { value: 'all', selected: deg.team === 'all' }, t('laps.deg.allTeams')),
     ...teams.map(t => h('option', { value: t, selected: deg.team === t }, t)));
-  const comp = h('select', { id: 'deg-comp', 'aria-label': t('laps.deg.compound'), onchange: e => { deg.comp = e.target.value; degChart(); } },
+  const comp = h('select', { id: 'deg-comp', 'aria-label': t('laps.deg.compound'), onchange: e => { deg.comp = e.target.value; changed(); } },
     h('option', { value: 'all', selected: deg.comp === 'all' }, t('laps.deg.allCompounds')),
     ...['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'].map(c => h('option', { value: c, selected: deg.comp === c }, compoundLabel(c))));
   const by = h('div', { class: 'seg' }, ...[['compound', t('laps.deg.byCompound')], ['team', t('laps.deg.byTeam')]].map(([k, l]) =>
-    h('button', { type: 'button', 'aria-pressed': deg.by === k, onclick: () => { deg.by = k; degControls(); degChart(); } }, l)));
+    h('button', { type: 'button', 'aria-pressed': deg.by === k, onclick: () => { deg.by = k; changed(); } }, l)));
   const kids = [h('label', {}, t('laps.deg.team'), team), h('label', {}, t('laps.deg.compound'), comp), by];
-  if (S.kind.race) kids.push(h('label', {}, h('input', { type: 'checkbox', id: 'deg-fuel', checked: deg.fuel, onchange: e => { deg.fuel = e.target.checked; degChart(); } }), t('laps.deg.fuel', { v: FUEL_S_PER_LAP })));
+  if (S.kind.race) kids.push(h('label', {}, h('input', { type: 'checkbox', id: 'deg-fuel', checked: deg.fuel, onchange: e => { deg.fuel = e.target.checked; changed(); } }), t('laps.deg.fuel', { v: FUEL_S_PER_LAP })));
   box.replaceChildren(...kids);
 }
 
@@ -175,6 +176,32 @@ function degChart() {
   $('#deg-table', root).innerHTML = rows.length
     ? `<div class="scroll"><table><thead><tr><th class="l">${deg.by === 'team' ? t('laps.deg.team') : t('laps.deg.compound')}</th><th>${t('tower.laps')}</th><th>${t('laps.deg.col')}</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l"><span style="color:${esc(r.color)}">●</span> ${esc(r.label)}</td><td>${r.n}</td><td><b>${r.slope == null ? '–' : `${r.slope >= 0 ? '+' : ''}${r.slope.toFixed(3)}`}</b></td></tr>`).join('')}</tbody></table></div>`
     : `<p class="hint">${t('laps.deg.none')}</p>`;
+}
+
+// settings are shared by the Laps tab and the dashboard widgets
+function changed() {
+  if (root && root.classList.contains('active') && S.M && S.M.laps.length) { controls(); degControls(); lapChart(); paceChart(); degChart(); }
+  emit('widgets');
+}
+
+// Draws one chart into a dashboard widget: the widget supplies the same element ids the tab uses.
+export function renderWidget(el, kind) {
+  const prev = root;
+  root = el;
+  try {
+    if (!S.M || !S.M.laps.length) return;
+    if (kind === 'laptimes') {
+      const sig = JSON.stringify(opt);
+      if (el.dataset.sig !== sig) { controls(); el.dataset.sig = sig; }
+      lapChart();
+    } else if (kind === 'pace') paceChart();
+    else if (kind === 'degradation') {
+      const teams = [...new Set([...S.M.drv.values()].filter(d => S.M.lapsBy.has(d.num)).map(d => d.team))].join();
+      const sig = JSON.stringify(deg) + teams;
+      if (el.dataset.sig !== sig) { degControls(); el.dataset.sig = sig; }
+      degChart();
+    }
+  } finally { root = prev; }
 }
 
 function redraw() {

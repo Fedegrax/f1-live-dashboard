@@ -49,6 +49,16 @@ function gridTable() {
   $('#gridtbl', root).innerHTML = `<div class="scroll"><table><thead><tr><th>${t('race.pos')}</th><th class="l">${t('tower.driver')}</th><th>${t('tower.grid')}</th><th>${t('race.gain')}</th><th>${t('tower.pit')}</th><th>${t('tower.laps')}</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+export function renderWidget(el, kind) {
+  const prev = root;
+  root = el;
+  try {
+    const M = S.M;
+    if (!M || M.laps.length < 2 || !M.posSeries.size) return;
+    if (kind === 'positions') posChart(); else if (kind === 'gaps') gapChart();
+  } finally { root = prev; }
+}
+
 export const race = {
   id: 'race',
   label: 'Gara',

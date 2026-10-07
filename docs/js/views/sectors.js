@@ -64,6 +64,12 @@ function table() {
   $('#sec-table', root).innerHTML = `<div class="scroll"><table><thead><tr><th>#</th><th class="l">${t('tower.driver')}</th><th>${t('sec.bestN', { n: 1 })}</th><th>${t('sec.bestN', { n: 2 })}</th><th>${t('sec.bestN', { n: 3 })}</th><th>${t('sec.ideal')}</th><th>${t('sec.actual')}</th><th>${t('sec.potential')}</th><th>I1 km/h</th><th>I2 km/h</th><th>${t('sec.trap')} km/h</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+export function renderWidget(el) {
+  const prev = root;
+  root = el;
+  try { if (S.M && S.M.laps.length) table(); } finally { root = prev; }
+}
+
 export const sectors = {
   id: 'sectors',
   label: 'Settori & velocità',
