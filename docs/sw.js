@@ -1,6 +1,6 @@
 // Offline shell: static files are served from cache and refreshed in the background.
 // Live data (OpenF1, the relay's /v1 and /live) is never cached here.
-const CACHE = 'pitwall-v2';
+const CACHE = 'pitwall-v3';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

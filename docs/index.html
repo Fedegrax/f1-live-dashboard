@@ -23,9 +23,49 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="w-h1" hidden>
+    <div class="w-wrap">
+      <div class="w-nav">
+        <div class="brand"><i></i>Pitwall<span class="brand-live">&nbsp;Live</span></div>
+        <div class="w-nav-r"><select id="w-lang" class="btn" data-i18n-aria="aria.language"></select><a class="btn" id="w-sponsor" href="#" target="_blank" rel="noopener" hidden data-i18n="btn.donate"></a></div>
+      </div>
+      <section class="w-hero">
+        <div class="w-copy">
+          <p class="w-eyebrow num"><span class="dot"></span><span data-i18n="welcome.eyebrow"></span></p>
+          <h1 id="w-h1"><span data-i18n="welcome.h1a"></span><br><span data-i18n="welcome.h1b"></span><br><em data-i18n="welcome.h1c"></em></h1>
+          <p class="w-sub" data-i18n="welcome.sub"></p>
+          <div class="w-cta"><button type="button" class="btn primary big" id="w-open" data-i18n="welcome.open"></button><a class="btn big" id="w-star" href="#" target="_blank" rel="noopener" hidden data-i18n="welcome.star"></a></div>
+          <div class="w-stats"><div><b>6</b><span data-i18n="welcome.stat.langs"></span></div><div><b>25</b><span data-i18n="welcome.stat.circuits"></span></div><div><b>0 €</b><span data-i18n="welcome.stat.free"></span></div></div>
+        </div>
+      </section>
+      <section class="w-radar">
+        <div class="w-map">
+          <svg viewBox="0 0 640 420" role="img" aria-label="Rain radar demo">
+            <defs><filter id="wblur"><feGaussianBlur stdDeviation="22"/></filter><pattern id="wgrid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="currentColor" stroke-opacity=".08"/></pattern></defs>
+            <rect width="640" height="420" fill="url(#wgrid)"/>
+            <g filter="url(#wblur)" id="w-cells"></g>
+            <path d="M120 300 C80 260 90 190 150 170 L260 140 C300 128 330 90 380 80 C440 68 500 100 520 150 C540 205 500 230 470 250 L430 270 C400 290 420 340 380 350 L240 360 C180 366 150 330 120 300 Z" class="tk0"/><path d="M120 300 C80 260 90 190 150 170 L260 140 C300 128 330 90 380 80 C440 68 500 100 520 150 C540 205 500 230 470 250 L430 270 C400 290 420 340 380 350 L240 360 C180 366 150 330 120 300 Z" class="tk1"/><path d="M120 300 C80 260 90 190 150 170 L260 140 C300 128 330 90 380 80 C440 68 500 100 520 150 C540 205 500 230 470 250 L430 270 C400 290 420 340 380 350 L240 360 C180 366 150 330 120 300 Z" class="tk2"/>
+            <g class="tc"><g><circle cx="120" cy="300" r="11"/><text x="120" y="304" text-anchor="middle">1</text></g><g><circle cx="150" cy="170" r="11"/><text x="150" y="174" text-anchor="middle">2</text></g><g><circle cx="260" cy="140" r="11"/><text x="260" y="144" text-anchor="middle">3</text></g><g><circle cx="380" cy="80" r="11"/><text x="380" y="84" text-anchor="middle">4</text></g><g><circle cx="520" cy="150" r="11"/><text x="520" y="154" text-anchor="middle">5</text></g><g><circle cx="470" cy="250" r="11"/><text x="470" y="254" text-anchor="middle">6</text></g><g><circle cx="430" cy="270" r="11"/><text x="430" y="274" text-anchor="middle">7</text></g><g><circle cx="380" cy="350" r="11"/><text x="380" y="354" text-anchor="middle">8</text></g><g><circle cx="240" cy="360" r="11"/><text x="240" y="364" text-anchor="middle">9</text></g></g>
+            <circle r="6" fill="#fff"><animateMotion dur="11s" repeatCount="indefinite" path="M120 300 C80 260 90 190 150 170 L260 140 C300 128 330 90 380 80 C440 68 500 100 520 150 C540 205 500 230 470 250 L430 270 C400 290 420 340 380 350 L240 360 C180 366 150 330 120 300 Z"/></circle>
+          </svg>
+          <span class="w-maplabel num"><span data-i18n="welcome.radar.label"></span> · <span id="w-step-label"></span></span>
+          <span class="w-legend num"><span data-i18n="welcome.radar.legend.lo"></span><i></i><span data-i18n="welcome.radar.legend.hi"></span></span>
+          <div class="w-steps"><button type="button" class="wstep" data-step="0" aria-pressed="true" data-i18n="welcome.step.0"></button><button type="button" class="wstep" data-step="1" aria-pressed="false" data-i18n="welcome.step.1"></button><button type="button" class="wstep" data-step="2" aria-pressed="false" data-i18n="welcome.step.2"></button><button type="button" class="wstep" data-step="3" aria-pressed="false" data-i18n="welcome.step.3"></button></div>
+        </div>
+        <div class="w-rtext">
+          <p class="w-eyebrow num acc" data-i18n="welcome.radar.eyebrow"></p>
+          <h2 data-i18n="welcome.radar.title"></h2>
+          <p data-i18n="welcome.radar.text"></p>
+          <ol><li><span class="num">01</span><span data-i18n="welcome.radar.p1"></span></li><li><span class="num">02</span><span data-i18n="welcome.radar.p2"></span></li><li><span class="num">03</span><span data-i18n="welcome.radar.p3"></span></li></ol>
+        </div>
+      </section>
+      <section class="w-feat"><h2 data-i18n="welcome.features"></h2><div class="w-grid"><div class="wf"><span class="num">01</span><h3 data-i18n="welcome.f1.t"></h3><p data-i18n="welcome.f1.b"></p></div><div class="wf"><span class="num">02</span><h3 data-i18n="welcome.f2.t"></h3><p data-i18n="welcome.f2.b"></p></div><div class="wf"><span class="num">03</span><h3 data-i18n="welcome.f3.t"></h3><p data-i18n="welcome.f3.b"></p></div><div class="wf"><span class="num">04</span><h3 data-i18n="welcome.f4.t"></h3><p data-i18n="welcome.f4.b"></p></div><div class="wf"><span class="num">05</span><h3 data-i18n="welcome.f5.t"></h3><p data-i18n="welcome.f5.b"></p></div><div class="wf"><span class="num">06</span><h3 data-i18n="welcome.f6.t"></h3><p data-i18n="welcome.f6.b"></p></div></div></section>
+      <section class="w-final"><h2 data-i18n="welcome.cta.title"></h2><p data-i18n="welcome.cta.text"></p><div class="w-cta"><button type="button" class="btn big w-dark" id="w-open2" data-i18n="welcome.open"></button><a class="btn big w-light" id="w-sponsor2" href="#" target="_blank" rel="noopener" hidden data-i18n="btn.donate"></a></div></section>
+    </div>
+  </div>
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><i></i>Pitwall<span class="brand-live">&nbsp;Live</span></div>
+      <a class="brand" id="brand-home" href="#" data-i18n-title="welcome.home"><i></i>Pitwall<span class="brand-live">&nbsp;Live</span></a>
       <button class="btn menu-toggle" id="btn-menu" type="button" aria-expanded="false" aria-controls="topmenu" data-i18n="btn.menu"></button>
       <div class="pickers" id="topmenu">
         <select id="sel-year" data-i18n-aria="aria.season"></select>
