@@ -1,5 +1,5 @@
 // Approximate circuit locations, keyed by OpenF1 circuit/location names. Unknown places are geocoded on demand.
-const CIRCUITS = [
+export const CIRCUITS = [
   ['melbourne', -37.8497, 144.968], ['albert park', -37.8497, 144.968], ['shanghai', 31.3389, 121.2197], ['suzuka', 34.8431, 136.541],
   ['sakhir', 26.0325, 50.5106], ['bahrain', 26.0325, 50.5106], ['jeddah', 21.6319, 39.1044], ['miami', 25.9581, -80.2389],
   ['imola', 44.3439, 11.7167], ['monaco', 43.7347, 7.4206], ['monte carlo', 43.7347, 7.4206], ['catalunya', 41.57, 2.2611], ['barcelona', 41.57, 2.2611],

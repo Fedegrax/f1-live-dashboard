@@ -181,4 +181,7 @@ export default {
   "rd.summary.soon": "Rain expected at the circuit in {m} min ({v} mm/h).",
   "rd.summary.dry": "No rain expected at the circuit in the next {h}.",
   "rd.note": "Past 2 hours: weather radar (about 1 km). Future: model forecast on a grid of roughly 10 km, indicative only. It shows whether rain may reach the circuit and from where, not individual corners.",
+
+  "rd.zoomTrack": "Circuit",
+  "rd.zoomArea": "Area",
 };

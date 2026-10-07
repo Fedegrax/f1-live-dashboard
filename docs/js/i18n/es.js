@@ -181,4 +181,7 @@ export default {
   "rd.summary.soon": "Lluvia prevista en el circuito en {m} min ({v} mm/h).",
   "rd.summary.dry": "No se espera lluvia en el circuito en las próximas {h}.",
   "rd.note": "Últimas 2 horas: radar meteorológico (unos 1 km). Futuro: previsión de modelo en una cuadrícula de unos 10 km, solo orientativa. Muestra si la lluvia puede llegar al circuito y desde dónde, no curvas concretas.",
+
+  "rd.zoomTrack": "Circuito",
+  "rd.zoomArea": "Zona",
 };

@@ -181,4 +181,7 @@ export default {
   "rd.summary.soon": "Regen an der Strecke in {m} min erwartet ({v} mm/h).",
   "rd.summary.dry": "In den nächsten {h} wird kein Regen an der Strecke erwartet.",
   "rd.note": "Letzte 2 Stunden: Wetterradar (etwa 1 km). Zukunft: Modellvorhersage auf einem Raster von rund 10 km, nur als Anhaltspunkt. Sie zeigt, ob und woher Regen die Strecke erreichen kann, nicht einzelne Kurven.",
+
+  "rd.zoomTrack": "Strecke",
+  "rd.zoomArea": "Gebiet",
 };
