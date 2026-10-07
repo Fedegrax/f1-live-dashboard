@@ -3,6 +3,8 @@
 Timing, lap analysis, tyre strategy, telemetry and a live track map for every Formula 1 session since 2023.
 Runs in the browser; the optional live relay is a single dependency-free Node file.
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/Fedegrax)
+
 **Languages:** English · Italiano · Español · Français · Deutsch · Português
 
 ## What you get
@@ -90,6 +92,10 @@ Copy `docs/js/i18n/en.js` to `<code>.js`, translate the values and keep the `{pl
 ## Rain radar sources
 
 Past radar from [RainViewer](https://www.rainviewer.com), forecast from [Open-Meteo](https://open-meteo.com), base map from OpenStreetMap (set `mapTiles` in `docs/config.js` to use another tile provider). Radar resolution is about 1 km and the forecast grid about 10 km, so the radar shows whether and from where rain may reach the circuit, not individual corners.
+
+## Support
+
+Pitwall Live is free and open source. If it is useful to you, you can support its development on [GitHub Sponsors](https://github.com/sponsors/Fedegrax).
 
 ## Disclaimer
 
