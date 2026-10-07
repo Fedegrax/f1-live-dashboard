@@ -42,6 +42,8 @@ class RadarPanel {
         <button class="btn sm" type="button" data-r="play">▶</button>
         <input type="range" min="0" max="0" value="0" data-r="slider" aria-label="${esc(t('rd.timeline'))}">
         <button class="btn sm" type="button" data-r="now">${esc(t('rd.now'))}</button>
+        <button class="btn sm" type="button" data-r="zoomtrack">${esc(t('rd.zoomTrack'))}</button>
+        <button class="btn sm" type="button" data-r="zoomarea">${esc(t('rd.zoomArea'))}</button>
         <div class="seg" data-r="hz"><button type="button" data-h="2" aria-pressed="true">2 h</button><button type="button" data-h="6" aria-pressed="false">6 h</button><button type="button" data-h="24" aria-pressed="false">24 h</button></div>
       </div>
       <div class="rd-label num" data-r="label"></div>
@@ -54,6 +56,8 @@ class RadarPanel {
     q('play').addEventListener('click', () => this.toggle());
     q('slider').addEventListener('input', e => { this.stop(); this.go(Number(e.target.value)); });
     q('now').addEventListener('click', () => { this.stop(); this.go(this.nowIndex()); });
+    q('zoomtrack').addEventListener('click', () => this.zoomTrack());
+    q('zoomarea').addEventListener('click', () => this.zoomArea());
     q('hz').addEventListener('click', e => {
       const b = e.target.closest('button[data-h]'); if (!b) return;
       this.horizon = Number(b.dataset.h);
@@ -79,34 +83,63 @@ class RadarPanel {
     const L = window.L;
     if (this.map) { this.map.remove(); this.layers.clear(); this.shown = null; }
     const { lat, lon } = this.pos;
-    this.map = L.map($('.rd-map', this.el), { zoomControl: true, attributionControl: true, minZoom: 5, maxZoom: 14 }).setView([lat, lon], 8);
+    this.map = L.map($('.rd-map', this.el), { zoomControl: true, attributionControl: true, minZoom: 5, maxZoom: 16 }).setView([lat, lon], this.areaZoom());
     this.map.createPane('basepane').style.zIndex = 150;
-    this.base = L.tileLayer(baseUrl(), { pane: 'basepane', maxZoom: 14, attribution: '© OpenStreetMap contributors · RainViewer · Open-Meteo' }).addTo(this.map);
+    this.base = L.tileLayer(baseUrl(), { pane: 'basepane', maxZoom: 16, attribution: '© OpenStreetMap contributors · RainViewer · Open-Meteo' }).addTo(this.map);
     this.setBase();
-    L.circleMarker([lat, lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#ff3d3d', fillOpacity: 1 }).addTo(this.map).bindTooltip(this.pos.name || t('rd.track'));
+    this.map.createPane('trackpane').style.zIndex = 450;
+    L.marker([lat, lon], { pane: 'trackpane', interactive: false, icon: L.divIcon({ className: 'rd-pulse', html: '<i></i>', iconSize: [34, 34] }) }).addTo(this.map);
     this.loadTrack();
   }
 
   setBase() { this.el.querySelector('.rd-map')?.classList.toggle('rd-dark', !isLight()); }
 
-  async loadTrack() {
+  areaZoom() { return document.documentElement.dataset.compact === '1' ? 9 : 10; }
+
+  // Track geometry: bundled snapshot first, then OpenStreetMap through a few Overpass mirrors.
+  async trackWays() {
     const { lat, lon } = this.pos;
-    const key = `f1d.track.${lat.toFixed(3)},${lon.toFixed(3)}`;
-    let ways = null;
-    try { ways = JSON.parse(localStorage.getItem(key)); } catch { /* ignore */ }
-    if (!ways) {
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    try {
+      if (!RadarPanel.bundle) RadarPanel.bundle = await (await fetch('data/tracks.json')).json();
+      if (RadarPanel.bundle[key] && RadarPanel.bundle[key].length) return RadarPanel.bundle[key];
+    } catch { /* offline copy missing */ }
+    try { const c = JSON.parse(localStorage.getItem(`f1d.track.${key}`)); if (c && c.length) return c; } catch { /* ignore */ }
+    const q = `[out:json][timeout:25];way(around:1800,${lat},${lon})["highway"="raceway"];out geom;`;
+    for (const m of ['https://overpass.openstreetmap.fr/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
       try {
         const ctl = new AbortController();
         const timer = setTimeout(() => ctl.abort(), 9000);
-        const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: `data=${encodeURIComponent(`[out:json][timeout:20];way(around:1800,${lat},${lon})["highway"="raceway"];out geom;`)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
+        const res = await fetch(m, { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
         clearTimeout(timer);
-        const j = await res.json();
-        ways = (j.elements || []).map(e => e.geometry.map(g => [g.lat, g.lon]));
-        try { localStorage.setItem(key, JSON.stringify(ways)); } catch { /* quota */ }
-      } catch { ways = []; }
+        if (!res.ok) continue;
+        const ways = ((await res.json()).elements || []).map(e => e.geometry.map(g => [g.lat, g.lon]));
+        if (ways.length) { try { localStorage.setItem(`f1d.track.${key}`, JSON.stringify(ways)); } catch { /* quota */ } return ways; }
+      } catch { /* next mirror */ }
     }
-    for (const w of ways) if (this.map) window.L.polyline(w, { color: cssVar('--accent') || '#3ccfff', weight: 3, opacity: 0.95 }).addTo(this.map);
+    return [];
   }
+
+  async loadTrack() {
+    const L = window.L;
+    const ways = await this.trackWays();
+    if (!this.map) return;
+    const group = L.featureGroup().addTo(this.map);
+    if (ways.length) {
+      // dark casing, white edge and a bright core so the circuit reads on any radar colour
+      for (const [weight, color, opacity] of [[13, '#000000', 0.6], [9, '#ffffff', 1], [4.5, '#ff2d3d', 1]]) {
+        for (const w of ways) L.polyline(w, { pane: 'trackpane', color, weight, opacity, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(group);
+      }
+      this.trackBounds = group.getBounds();
+    } else {
+      // street circuit without mapped geometry: highlight the area instead
+      const c = L.circle([this.pos.lat, this.pos.lon], { pane: 'trackpane', radius: 1400, color: '#ff2d3d', weight: 3, dashArray: '6 6', fillColor: '#ff2d3d', fillOpacity: 0.12, interactive: false }).addTo(group);
+      this.trackBounds = c.getBounds();
+    }
+  }
+
+  zoomTrack() { if (this.map && this.trackBounds) this.map.fitBounds(this.trackBounds, { padding: [40, 40], maxZoom: 15 }); }
+  zoomArea() { if (this.map) this.map.setView([this.pos.lat, this.pos.lon], this.areaZoom()); }
 
   async load() {
     const { lat, lon } = this.pos;
@@ -157,7 +190,7 @@ class RadarPanel {
     let layer = this.layers.get(this.idx);
     if (!layer) {
       layer = f.type === 'radar'
-        ? L.tileLayer(`${f.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0.7, maxNativeZoom: 7, maxZoom: 14, zIndex: 5 })
+        ? L.tileLayer(`${f.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0.7, maxNativeZoom: 7, maxZoom: 16, zIndex: 5 })
         : L.imageOverlay(this.forecastImage(f.k), this.bounds, { opacity: 0.75, interactive: false, zIndex: 5 });
       this.layers.set(this.idx, layer);
     }
