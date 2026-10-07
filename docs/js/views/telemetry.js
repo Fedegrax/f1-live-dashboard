@@ -56,7 +56,7 @@ async function loadOne(sel) {
   const persist = S.state === 'finished' && Date.now() > Date.parse(S.session.date_end) + 3600e3;
   const [car, loc] = await Promise.all([get('car_data', f, { persist }), get('location', f, { persist })]);
   const tr = buildTrace(car, loc, t0, t1);
-  if (!tr) throw new Error('Telemetria non disponibile per questo giro');
+  if (!tr) throw new Error(t('telemetry.noLap'));
   return tr;
 }
 

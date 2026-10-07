@@ -222,6 +222,8 @@ export default {
   'welcome.f6.b': "Licencia MIT, funciona en el navegador, instalable como app. Sin cuenta, sin anuncios.",
   'welcome.cta.title': "Hecho a la vista de todos. Impulsado por aficionados.",
   'welcome.cta.text': "Sin anuncios, sin muros de pago, sin rastreo. Si Pitwall Live te ayuda a seguir una carrera, una estrella lo da a conocer — y un patrocinio lo mantiene en marcha.",
+  'telemetry.noLap': "Telemetría no disponible para esta vuelta",
+  'welcome.demo': "Demostración del radar de lluvia",
   'welcome.home': "Inicio",
   'welcome.radar.legend.lo': "ligera",
   'welcome.radar.legend.hi': "fuerte",

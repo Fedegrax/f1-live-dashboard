@@ -222,6 +222,8 @@ export default {
   'welcome.f6.b': "Licenza MIT, gira nel browser, installabile come app. Niente account, niente pubblicità.",
   'welcome.cta.title': "Nato in pubblico. Spinto dai tifosi.",
   'welcome.cta.text': "Niente pubblicità, niente abbonamenti, niente tracking. Se Pitwall Live ti aiuta a seguire una gara, una stella lo fa conoscere agli altri — e una sponsorizzazione lo tiene acceso.",
+  'telemetry.noLap': "Telemetria non disponibile per questo giro",
+  'welcome.demo': "Demo del radar pioggia",
   'welcome.home': "Home",
   'welcome.radar.legend.lo': "debole",
   'welcome.radar.legend.hi': "forte",

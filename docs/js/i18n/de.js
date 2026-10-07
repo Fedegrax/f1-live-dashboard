@@ -222,6 +222,8 @@ export default {
   'welcome.f6.b': "MIT-Lizenz, läuft im Browser, als App installierbar. Kein Konto, keine Werbung.",
   'welcome.cta.title': "Offen entwickelt. Von Fans getragen.",
   'welcome.cta.text': "Keine Werbung, keine Paywall, kein Tracking. Wenn Pitwall Live dir beim Verfolgen eines Rennens hilft, macht ein Stern es bekannt — und ein Sponsoring hält es am Laufen.",
+  'telemetry.noLap': "Für diese Runde ist keine Telemetrie verfügbar",
+  'welcome.demo': "Regenradar-Demo",
   'welcome.home': "Start",
   'welcome.radar.legend.lo': "leicht",
   'welcome.radar.legend.hi': "stark",
