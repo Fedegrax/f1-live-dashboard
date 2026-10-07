@@ -172,3 +172,18 @@ export function ramp(t) {
 }
 
 export const compoundLabel = name => t(`compound.${String(name || 'UNKNOWN').toUpperCase()}`);
+
+// ---------- compact / phone mode ----------
+const LS_COMPACT = 'f1d.compact';
+export const compactPref = () => { try { return localStorage.getItem(LS_COMPACT) || 'auto'; } catch { return 'auto'; } };
+export const isCompact = () => document.documentElement.dataset.compact === '1';
+export function applyCompact() {
+  const p = compactPref();
+  const on = p === 'on' || (p === 'auto' && matchMedia('(max-width: 720px)').matches);
+  document.documentElement.dataset.compact = on ? '1' : '0';
+  return on;
+}
+export function toggleCompact() {
+  try { localStorage.setItem(LS_COMPACT, isCompact() ? 'off' : 'on'); } catch { /* ignore */ }
+  return applyCompact();
+}

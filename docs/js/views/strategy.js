@@ -72,7 +72,7 @@ function compare(M) {
   });
 }
 
-function timeline(M) {
+export function timeline(M) {
   const rows = timingRows(M, S.kind);
   const N = Math.max(maxLap(M), 1);
   const step = N > 40 ? 10 : N > 20 ? 5 : N > 10 ? 2 : 1;

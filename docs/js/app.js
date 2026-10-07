@@ -1,9 +1,12 @@
 import { S, on, emit } from './state.js';
 import * as api from './api.js';
 import { prepare, sessionKind, sessionState, maxLap, fmtLap } from './data.js';
-import { $, $$, h, esc, ensureSelection, chartTheme, dayTime, hhmm, clock } from './ui.js';
+import { $, $$, h, esc, ensureSelection, chartTheme, dayTime, hhmm, clock, applyCompact, toggleCompact, isCompact } from './ui.js';
 import { t, initI18n, setLang, LANGS, lang, applyStatic } from './i18n.js';
+import { dashboard } from './views/dashboard.js';
 import { overview } from './views/overview.js';
+import { championship } from './views/championship.js';
+import { radar } from './views/radar.js';
 import { laps } from './views/laps.js';
 import { sectors } from './views/sectors.js';
 import { strategy } from './views/strategy.js';
@@ -12,7 +15,7 @@ import { telemetry } from './views/telemetry.js';
 import { map } from './views/map.js';
 import { feed } from './views/feed.js';
 
-const views = [overview, laps, sectors, strategy, race, telemetry, map, feed];
+const views = [dashboard, overview, championship, radar, laps, sectors, strategy, race, telemetry, map, feed];
 const flagName = f => { const k = `flag.${String(f).replace(/ /g, '_')}`; const v = t(k); return v === k ? f : v; };
 const kindLabel = k => { const key = `session.${k.code}`; const v = t(key); return v === key ? k.label : v; };
 let allSessions = [];
@@ -129,7 +132,10 @@ function renderSessions() {
     const st = sessionState(s, now);
     box.append(h('button', { class: 'spill', type: 'button', 'aria-pressed': S.session?.session_key === s.session_key, title: `${s.session_name} · ${dayTime(Date.parse(s.date_start))}`, onclick: () => { S.auto = false; syncAuto(); selectSession(s); } }, h('span', { class: `dot ${st}` }), k.code));
   }
+  revealCurrentSession();
 }
+
+function revealCurrentSession() { $('#sessions [aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' }); }
 
 function syncAuto() { $('#btn-auto').setAttribute('aria-pressed', String(S.auto)); }
 
@@ -147,7 +153,7 @@ function selectSession(s) {
   renderSessions();
   renderHero();
   renderTabs();
-  if (!views.find(v => v.id === S.tab)?.available()) setTab('overview');
+  if (!views.find(v => v.id === S.tab)?.available()) setTab('dashboard');
   writeHash();
   loadSession();
   renderActive();
@@ -158,7 +164,9 @@ function buildModel() {
   return prepare(S.state === 'live' ? { ...S.raw, results: [] } : S.raw);
 }
 
+let dirty = false;
 function scheduleRender() {
+  if (document.hidden) { dirty = true; return; }
   if (renderTimer) return;
   renderTimer = setTimeout(() => {
     renderTimer = 0;
@@ -178,6 +186,7 @@ async function loadSession() {
   const persist = finishedLongAgo();
   lastPoll = Date.now();
   const q = (ep, extra = []) => api.get(ep, [['session_key', '=', key], ...extra], { persist });
+  loadChampionship(token);
   const jobs = {
     drivers: q('drivers'),
     laps: q('laps'),
@@ -205,6 +214,33 @@ async function loadSession() {
     scheduleRender();
   })));
   if (token === loadToken) scheduleRender();
+}
+
+// ---------- championship (points before the session + official points once published) ----------
+async function loadChampionship(token) {
+  S.champ = { base: [], baseTeams: [], official: null, officialTeams: null };
+  const s = S.session;
+  const start = Date.parse(s.date_start);
+  const prev = allSessions.filter(x => (x.session_name === 'Race' || x.session_name === 'Sprint') && Date.parse(x.date_end) < start && x.session_key !== s.session_key).pop();
+  const jobs = [];
+  if (prev) {
+    const f = [['session_key', '=', prev.session_key]];
+    jobs.push(api.get('championship_drivers', f, { persist: true }).then(r => { S.champ.base = r; }));
+    jobs.push(api.get('championship_teams', f, { persist: true }).then(r => { S.champ.baseTeams = r; }));
+  }
+  jobs.push(fetchOfficialChampionship(token));
+  await Promise.allSettled(jobs);
+  if (token === loadToken) scheduleRender();
+}
+
+async function fetchOfficialChampionship(token) {
+  const s = S.session;
+  if (S.state !== 'finished' || !(s.session_name === 'Race' || s.session_name === 'Sprint')) return;
+  const f = [['session_key', '=', s.session_key]];
+  const persist = finishedLongAgo();
+  const [d, tm] = await Promise.all([api.get('championship_drivers', f, { persist }), api.get('championship_teams', f, { persist })]);
+  if (token !== loadToken) return;
+  if (d.length) { S.champ.official = d; S.champ.officialTeams = tm.length ? tm : null; }
 }
 
 // ---------- incremental refresh ----------
@@ -249,6 +285,7 @@ async function refresh() {
       tasks.push(q('weather', lw ? [['date', '>=', api.iso(lw)]] : []).then(rows => { R.weather = lw ? mergeRows(R.weather, rows, p => p.date) : rows; }));
       if (S.kind.race && S.state === 'live') tasks.push(q('intervals', [['date', '>=', api.iso(Date.now() - 90e3)]]).then(rows => { R.intervals = rows; }));
     }
+    if (tick % 3 === 0 && S.state === 'finished' && !S.champ.official) tasks.push(fetchOfficialChampionship(token));
     if (tick % 4 === 0) tasks.push(q('team_radio').then(rows => { R.radio = rows; }));
     await Promise.allSettled(tasks);
     if (token === loadToken) scheduleRender();
@@ -328,7 +365,7 @@ function renderHero() {
   const sign = off.startsWith('-') ? -1 : 1;
   const [oh, om] = off.replace(/^[+-]/, '').split(':').map(Number);
   const local = new Date(start + sign * (oh * 60 + om) * 60000).toISOString().slice(11, 16);
-  const pill = S.state === 'live' ? `<span class="status-pill live">${t('status.live')}</span>` : S.state === 'upcoming' ? `<span class="status-pill">${t('status.startsIn')} <span class="num" id="countdown">${countdown(start - Date.now())}</span></span>` : `<span class="status-pill">${t('status.ended')}</span>`;
+  const pill = S.state === 'live' ? `<span class="status-pill live">${t('status.live')}</span><span class="fresh" id="fresh"></span>` : S.state === 'upcoming' ? `<span class="status-pill">${t('status.startsIn')} <span class="num" id="countdown">${countdown(start - Date.now())}</span></span>` : `<span class="status-pill">${t('status.ended')}</span>`;
   const w = M && M.weather.length ? M.weather[M.weather.length - 1] : null;
   const flagRow = M ? [...M.rc].reverse().find(r => r.category === 'Flag' && (r.scope === 'Track' || r.scope == null)) : null;
   const flag = flagRow ? flagName(flagRow.flag) : null;
@@ -359,7 +396,7 @@ function renderBanners() {
   const a = api.authInfo();
   const out = [];
   const liveRelay = S.state === 'live' && api.relayActive();
-  if (liveRelay) out.push(`<div class="banner info"><p><b>${t('ban.relay.title')}</b> ${t('ban.relay.text')}${api.relay.info.partial ? ` ${t('ban.relay.partial')}` : ''}</p></div>`);
+  if (liveRelay) out.push(`<div class="banner info${api.relay.info.partial ? '' : ' quiet'}"><p><b>${t('ban.relay.title')}</b> ${t('ban.relay.text')}${api.relay.info.partial ? ` ${t('ban.relay.partial')}` : ''}</p></div>`);
   const liveBlocked = !liveRelay && (api.status.locked || (S.state === 'live' && !a.loggedIn && S.failed.size >= 4));
   if (liveBlocked) {
     out.push(a.loggedIn
@@ -377,15 +414,26 @@ function renderTabs() {
   nav.innerHTML = '';
   for (const v of views) {
     if (!v.available()) continue;
-    nav.append(h('button', { class: 'tab', role: 'tab', id: `tab-${v.id}`, 'aria-selected': v.id === S.tab, onclick: () => setTab(v.id) }, t(`tab.${v.id}`)));
+    nav.append(h('button', { class: 'tab', role: 'tab', id: `tab-${v.id}`, 'aria-controls': `panel-${v.id}`, tabindex: v.id === S.tab ? 0 : -1, 'aria-selected': v.id === S.tab, onclick: () => setTab(v.id), onkeydown: tabKey }, t(`tab.${v.id}`)));
   }
+}
+
+function tabKey(e) {
+  const tabs = $$('.tab');
+  const i = tabs.indexOf(e.currentTarget);
+  const j = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+  if (j < 0) return;
+  e.preventDefault();
+  tabs[j].focus();
+  tabs[j].click();
 }
 
 function setTab(id) {
   const prev = views.find(v => v.id === S.tab);
   if (prev && prev.id !== id && prev.hide) prev.hide();
   S.tab = id;
-  $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.id === `tab-${id}`)));
+  $$('.tab').forEach(tb => { tb.setAttribute('aria-selected', String(tb.id === `tab-${id}`)); tb.tabIndex = tb.id === `tab-${id}` ? 0 : -1; });
+  $(`#tab-${id}`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
   $$('.panel').forEach(p => p.classList.toggle('active', p.id === `panel-${id}`));
   writeHash();
   const v = views.find(x => x.id === id);
@@ -458,8 +506,41 @@ function initSettings() {
 }
 
 // ---------- language, donate and footer links ----------
+let wake = null;
+async function keepAwake() {
+  const on = $('#btn-wake').getAttribute('aria-pressed') === 'true';
+  try {
+    if (on && !wake && !document.hidden) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+    if (!on && wake) { await wake.release(); wake = null; }
+  } catch { /* not granted */ }
+}
+
+function freshness() {
+  const el = $('#fresh');
+  if (!el) return;
+  const last = api.status.lastOk;
+  if (!last || S.state === 'finished') { el.textContent = ''; return; }
+  const sec = Math.max(0, Math.round((Date.now() - last) / 1000));
+  el.textContent = sec < 3 ? t('fresh.now') : t('fresh.ago', { s: sec });
+  el.classList.toggle('stale', sec > 45 && S.state === 'live');
+}
+
 function initChrome() {
   const cfg = window.PITWALL || {};
+  const compactBtn = $('#btn-compact');
+  const syncCompact = () => compactBtn.setAttribute('aria-pressed', String(isCompact()));
+  applyCompact(); syncCompact();
+  compactBtn.addEventListener('click', () => { toggleCompact(); syncCompact(); renderActive(); });
+  matchMedia('(max-width: 720px)').addEventListener('change', () => { applyCompact(); syncCompact(); renderActive(); });
+  const menu = $('#btn-menu');
+  menu.addEventListener('click', () => { const open = $('.topbar').classList.toggle('open'); menu.setAttribute('aria-expanded', String(open)); });
+  if ('wakeLock' in navigator) {
+    const wb = $('#btn-wake');
+    wb.hidden = false;
+    wb.addEventListener('click', () => { wb.setAttribute('aria-pressed', String(wb.getAttribute('aria-pressed') !== 'true')); keepAwake(); });
+  }
+  setInterval(freshness, 1000);
+  if ('serviceWorker' in navigator && /^(https:|http:\/\/localhost)/.test(location.href) && !new URLSearchParams(location.search).has('nosw')) navigator.serviceWorker.register('sw.js').catch(() => {});
   const sel = $('#sel-lang');
   for (const [code, name] of LANGS) sel.append(h('option', { value: code, selected: code === lang }, name));
   sel.addEventListener('change', () => setLang(sel.value));
@@ -518,7 +599,7 @@ async function boot() {
   setTab(S.tab);
   setInterval(loop, 3000);
   window.addEventListener('resize', () => { if (S.tab === 'map' || S.tab === 'telemetry') renderActive(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) loop(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (dirty) { dirty = false; scheduleRender(); } loop(); keepAwake(); } });
 }
 
 boot();

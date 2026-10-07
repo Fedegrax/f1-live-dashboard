@@ -42,36 +42,36 @@ function tyreCell(r) {
   return `<span class="tyre"><i style="border-color:${c.color}">${c.short}</i>${r.tyreAge != null ? r.tyreAge : ''}</span>`;
 }
 
-function table(M, kind, rows) {
+export function towerHtml(M, kind, rows) {
   const race = kind.race;
   const quali = kind.quali && rows.some(r => r.phases.some(p => p != null));
   const cols = [];
   cols.push(`<th>P</th><th class="l">${t('tower.driver')}</th>`);
-  if (race) cols.push(`<th>${t('tower.laps')}</th><th>${t('tower.gapLeader')}</th><th>${t('tower.interval')}</th><th>${t('tower.last')}</th><th>${t('tower.best')}</th>`);
-  else cols.push(`<th>${t('tower.best')}</th><th>${t('tower.gap')}</th><th>${t('tower.prev')}</th>`);
-  if (quali) cols.push('<th>Q1</th><th>Q2</th><th>Q3</th>');
+  if (race) cols.push(`<th class="opt">${t('tower.laps')}</th><th><span class="lg">${t('tower.gapLeader')}</span><span class="sh">${t('tower.gapLeader.s')}</span></th><th><span class="lg">${t('tower.interval')}</span><span class="sh">${t('tower.interval.s')}</span></th><th>${t('tower.last')}</th><th class="opt">${t('tower.best')}</th>`);
+  else cols.push(`<th>${t('tower.best')}</th><th>${t('tower.gap')}</th><th class="opt">${t('tower.prev')}</th>`);
+  if (quali) cols.push('<th class="opt">Q1</th><th class="opt">Q2</th><th class="opt">Q3</th>');
   if (!race) cols.push(`<th>${t('tower.last')}</th>`);
-  cols.push(`<th>S1</th><th>S2</th><th>S3</th><th>${t('tower.tyre')}</th>`);
-  if (!race) cols.push(`<th>${t('tower.laps')}</th>`);
-  cols.push(`<th>${t('tower.pit')}</th><th>${t('tower.vmax')}</th>`);
-  if (race) cols.push(`<th>${t('tower.grid')}</th>`);
+  cols.push(`<th class="opt">S1</th><th class="opt">S2</th><th class="opt">S3</th><th>${t('tower.tyre')}</th>`);
+  if (!race) cols.push(`<th class="opt">${t('tower.laps')}</th>`);
+  cols.push(`<th class="opt">${t('tower.pit')}</th><th class="opt">${t('tower.vmax')}</th>`);
+  if (race) cols.push(`<th class="opt">${t('tower.grid')}</th>`);
 
   const body = rows.map(r => {
     const d = r.d;
     const best = r.best ? `<span class="best-cell ${M.overall.lap && r.best.dur <= M.overall.lap.dur + 0.0004 ? 'overall' : ''}">${fmtLap(r.best.dur)}</span>` : '–';
-    const sec = r.sectors.map((v, i) => `<td><span class="sec ${r.sectorStates[i]}">${fmtSec(v)}</span></td>`).join('');
+    const sec = r.sectors.map((v, i) => `<td class="opt"><span class="sec ${r.sectorStates[i]}">${fmtSec(v)}</span></td>`).join('');
     let cells = `<td class="pos">${r.pos}</td><td class="l">${drvCell(d)}${r.status ? `<span class="tag">${r.status}</span>` : ''}${r.outLap ? '<span class="tag pit">OUT</span>' : ''}</td>`;
-    if (race) cells += `<td>${r.laps}</td><td>${gapText(r, kind)}</td><td>${intervalText(r)}</td><td>${lastLapCell(M, r)}</td><td>${best}</td>`;
-    else cells += `<td>${best}</td><td>${gapText(r, kind)}</td><td>${r.pos === 1 ? '' : fmtGap(r.prevGap)}</td>`;
-    if (quali) cells += r.phases.map(p => `<td>${p != null ? fmtLap(p) : '–'}</td>`).join('');
+    if (race) cells += `<td class="opt">${r.laps}</td><td>${gapText(r, kind)}</td><td>${intervalText(r)}</td><td>${lastLapCell(M, r)}</td><td class="opt">${best}</td>`;
+    else cells += `<td>${best}</td><td>${gapText(r, kind)}</td><td class="opt">${r.pos === 1 ? '' : fmtGap(r.prevGap)}</td>`;
+    if (quali) cells += r.phases.map(p => `<td class="opt">${p != null ? fmtLap(p) : '–'}</td>`).join('');
     if (!race) cells += `<td>${lastLapCell(M, r)}</td>`;
     cells += sec + `<td>${tyreCell(r)}</td>`;
-    if (!race) cells += `<td>${r.laps}</td>`;
-    cells += `<td>${r.pits || ''}</td><td>${r.topSpeed ?? '–'}</td>`;
+    if (!race) cells += `<td class="opt">${r.laps}</td>`;
+    cells += `<td class="opt">${r.pits || ''}</td><td class="opt">${r.topSpeed ?? '–'}</td>`;
     if (race) {
       const g = r.grid;
       const diff = g != null ? g - r.pos : null;
-      cells += `<td>${g ?? '–'}${diff ? ` <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}</span>` : ''}</td>`;
+      cells += `<td class="opt">${g ?? '–'}${diff ? ` <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}</span>` : ''}</td>`;
     }
     return `<tr class="row" data-num="${r.num}">${cells}</tr>`;
   }).join('');
@@ -188,7 +188,7 @@ export const overview = {
       const live = S.state === 'live';
       tower.innerHTML = emptyState(up ? t('empty.up.title') : t('empty.nodata.title'), up ? t('empty.up.text') : live ? t('empty.live.text') : t('empty.nodata.text'));
     } else {
-      tower.innerHTML = table(M, S.kind, rows);
+      tower.innerHTML = towerHtml(M, S.kind, rows);
     }
     $('#hl', root).innerHTML = rows.length ? highlights(M, S.kind, rows) : '<div class="muted">–</div>';
     $('#rc-short', root).innerHTML = M.rc.length ? rcList(M, 14) : `<li><span></span><span></span><span class="muted">${t('rc.none')}</span></li>`;

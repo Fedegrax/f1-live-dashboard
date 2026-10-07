@@ -9,7 +9,10 @@ Runs in the browser; the optional live relay is a single dependency-free Node fi
 
 | View | Contents |
 |---|---|
+| Dashboard | Your own page: pick widgets (live standings, lap times, pace, tyre degradation, championship, rain radar, positions, stints, weather, race control), drag or resize them, and the layout is saved in the browser. Presets for race, practice and qualifying. |
 | Standings | Timing tower: best/last lap, gaps, sector colours, tyre and age, pit stops, top speed, Q1/Q2/Q3, grid. Click a driver for every lap and mini-sector. |
+| Championship | Drivers' and constructors' tables with the points being earned in the current Race or Sprint shown in green, projected as if it ended now. |
+| Rain radar | Weather radar for the last 2 hours and a model forecast up to 24 hours over the circuit, with an animated timeline and a rain-at-the-circuit summary. |
 | Laps & pace | Lap-time chart, delta modes, pace distribution, tyre degradation by compound or team (optional fuel correction). |
 | Sectors & speed | Best sectors, ideal lap, potential, speed traps and intermediates. |
 | Strategy | Stint timeline with averages, stint comparison, tyre usage, pit stops. |
@@ -19,6 +22,10 @@ Runs in the browser; the optional live relay is a single dependency-free Node fi
 | Race control & weather | Flags and messages, temperatures, wind, humidity, team radio. |
 
 The URL keeps year, Grand Prix, session and view, so a shared link opens the same page.
+
+### On a phone
+
+Compact mode switches on by itself on small screens (or from the menu): fewer columns, one-line header, bottom tab bar, larger touch targets. The app can be installed to the home screen (PWA), keeps the screen awake on request and shows how fresh the live data is.
 
 ## Live data
 
@@ -77,6 +84,10 @@ test/            unit tests and sample data
 ### Adding a language
 
 Copy `docs/js/i18n/en.js` to `<code>.js`, translate the values and keep the `{placeholders}`, then add the code to `LANGS` in `docs/js/i18n.js`. `npm test` fails if a key or placeholder is missing.
+
+## Rain radar sources
+
+Past radar from [RainViewer](https://www.rainviewer.com), forecast from [Open-Meteo](https://open-meteo.com), base map from OpenStreetMap (set `mapTiles` in `docs/config.js` to use another tile provider). Radar resolution is about 1 km and the forecast grid about 10 km, so the radar shows whether and from where rain may reach the circuit, not individual corners.
 
 ## Disclaimer
 

@@ -430,3 +430,42 @@ export function stintStats(M, limit = 1.07) {
   }
   return out;
 }
+
+// ---------- championship ----------
+export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
+export const pointsTable = kind => (kind && kind.code === 'GP' ? RACE_POINTS : kind && kind.code === 'SPR' ? SPRINT_POINTS : null);
+
+// base: championship_drivers rows before the session; rows: timing rows ordered by position;
+// official: championship_drivers rows of this very session (when published)
+export function buildChampionship({ base = [], baseTeams = [], rows = [], kind, drivers, official = null, officialTeams = null }) {
+  const table = pointsTable(kind);
+  const start = new Map(base.map(b => [b.driver_number, b.points_current ?? 0]));
+  const gain = new Map();
+  if (official && official.length) {
+    for (const o of official) gain.set(o.driver_number, (o.points_current ?? 0) - (o.points_start ?? 0));
+  } else if (table) {
+    const eligible = rows.filter(r => !['DNF', 'DNS', 'DSQ'].includes(r.status));
+    eligible.forEach((r, i) => gain.set(r.num, table[i] ?? 0));
+  }
+  const nums = new Set([...start.keys(), ...(drivers ? drivers.keys() : []), ...gain.keys()]);
+  const list = [...nums].map(n => {
+    const d = drivers && drivers.get(n);
+    return { num: n, d, team: d ? d.team : '', start: start.get(n) ?? 0, gain: gain.get(n) ?? 0 };
+  }).filter(r => r.d || r.start > 0);
+  const rank = (arr, key) => [...arr].sort((a, b) => key(b) - key(a) || b.start - a.start || a.num - b.num);
+  const before = new Map(rank(list, r => r.start).map((r, i) => [r.num, i + 1]));
+  const out = rank(list, r => r.start + r.gain).map((r, i) => ({ ...r, total: r.start + r.gain, pos: i + 1, posStart: before.get(r.num) }));
+
+  const tStart = new Map(baseTeams.map(t => [t.team_name, t.points_current ?? 0]));
+  const tGain = new Map();
+  if (officialTeams && officialTeams.length) for (const o of officialTeams) tGain.set(o.team_name, (o.points_current ?? 0) - (o.points_start ?? 0));
+  else for (const r of out) if (r.team) tGain.set(r.team, (tGain.get(r.team) ?? 0) + r.gain);
+  const teams = [...new Set([...tStart.keys(), ...tGain.keys()])].map(name => {
+    const color = [...(drivers ? drivers.values() : [])].find(d => d.team === name)?.color || '#8a8f98';
+    return { name, color, start: tStart.get(name) ?? 0, gain: tGain.get(name) ?? 0 };
+  });
+  const tBefore = new Map([...teams].sort((a, b) => b.start - a.start).map((t, i) => [t.name, i + 1]));
+  const outTeams = [...teams].sort((a, b) => (b.start + b.gain) - (a.start + a.gain) || b.start - a.start).map((t, i) => ({ ...t, total: t.start + t.gain, pos: i + 1, posStart: tBefore.get(t.name) }));
+  return { drivers: out, teams: outTeams, awards: !!table || !!(official && official.length) };
+}
