@@ -3,6 +3,7 @@ import * as api from './api.js';
 import { prepare, sessionKind, sessionState, maxLap, fmtLap } from './data.js';
 import { $, $$, h, esc, ensureSelection, chartTheme, dayTime, hhmm, clock, applyCompact, toggleCompact, isCompact } from './ui.js';
 import { t, initI18n, setLang, LANGS, lang, applyStatic } from './i18n.js';
+import { initWelcome } from './welcome.js';
 import { dashboard } from './views/dashboard.js';
 import { overview } from './views/overview.js';
 import { championship } from './views/championship.js';
@@ -549,6 +550,7 @@ function initChrome() {
     $('#btn-donate').hidden = false;
     $('#foot-donate').hidden = false;
   }
+  initWelcome(cfg);
   if (cfg.repoUrl) { $('#foot-repo').href = cfg.repoUrl; $('#foot-issues').href = `${cfg.repoUrl}/issues`; }
   if (cfg.relayUrl) { try { if (!localStorage.getItem('f1d.relay')) localStorage.setItem('f1d.relay', cfg.relayUrl); } catch { /* ignore */ } }
 }
