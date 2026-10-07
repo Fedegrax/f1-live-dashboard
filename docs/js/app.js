@@ -137,6 +137,7 @@ function selectSession(s) {
   S.session = s;
   S.kind = sessionKind(s);
   S.state = sessionState(s);
+  api.setContext(s.session_key, S.state);
   S.raw = {};
   S.M = null;
   S.failed.clear();
@@ -255,6 +256,7 @@ async function refresh() {
 
 function desiredInterval() {
   if (!S.session) return 0;
+  if (S.state === 'live' && api.relayActive()) return 5000;
   if (api.status.locked) return 30000;
   if (S.state === 'live') return 12000;
   const end = Date.parse(S.session.date_end);
@@ -262,11 +264,23 @@ function desiredInterval() {
   return 0;
 }
 
+let lastRelay = 0;
+async function relayTick() {
+  if (!api.relay.url || Date.now() - lastRelay < 10000) return;
+  lastRelay = Date.now();
+  const before = api.relayActive();
+  await api.refreshRelay();
+  renderBanners();
+  if (!before && api.relayActive() && S.state === 'live') loadSession();
+}
+
 function loop() {
   if (!S.session) return;
+  relayTick();
   const st = sessionState(S.session);
   if (st !== S.state) {
     S.state = st;
+    api.setContext(S.session.session_key, st);
     renderSessions();
     renderHero();
     loadSession();
@@ -343,7 +357,9 @@ function renderBanners() {
   const box = $('#banners');
   const a = api.authInfo();
   const out = [];
-  const liveBlocked = api.status.locked || (S.state === 'live' && !a.loggedIn && S.failed.size >= 4);
+  const liveRelay = S.state === 'live' && api.relayActive();
+  if (liveRelay) out.push(`<div class="banner info"><p><b>Live dal feed F1.</b> Dati in tempo reale ricevuti dal relay${api.relay.info.partial ? ' (collegato a sessione già iniziata: i giri precedenti non sono disponibili, li trovi su OpenF1 a fine sessione)' : ''}.</p></div>`);
+  const liveBlocked = !liveRelay && (api.status.locked || (S.state === 'live' && !a.loggedIn && S.failed.size >= 4));
   if (liveBlocked) {
     out.push(a.loggedIn
       ? '<div class="banner err"><p><b>OpenF1 ha rifiutato la richiesta.</b> Il tuo account potrebbe non avere l’abbonamento live oppure il token è scaduto.</p><button class="btn" data-open="settings" type="button">Account</button></div>'
@@ -457,6 +473,7 @@ async function boot() {
   $('#btn-auto').addEventListener('click', () => { S.auto = !S.auto; syncAuto(); loop(); });
   $('#btn-refresh').addEventListener('click', () => { if (S.session) { api.status.locked = false; loadSession(); } });
 
+  await api.initRelay();
   const year = H.y || now;
   ysel.value = String(year);
   await loadYear(year);
