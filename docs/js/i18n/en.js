@@ -222,6 +222,8 @@ export default {
   'welcome.f6.b': "MIT licensed, runs in the browser, installable as an app. No account, no ads.",
   'welcome.cta.title': "Built in the open. Fuelled by fans.",
   'welcome.cta.text': "No ads, no paywall, no tracking. If Pitwall Live helps you follow a race, a star tells others it exists — and a sponsorship keeps it running.",
+  'telemetry.noLap': "Telemetry is not available for this lap",
+  'welcome.demo': "Rain radar demo",
   'welcome.home': "Home",
   'welcome.radar.legend.lo': "light",
   'welcome.radar.legend.hi': "heavy",
