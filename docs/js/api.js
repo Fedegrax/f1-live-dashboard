@@ -158,7 +158,7 @@ async function idbSet(key, value) {
 // ---------- live relay ----------
 // A relay (server/server.js) reads the free F1 live feed and serves it with the OpenF1 API shape.
 const LS_RELAY = 'f1d.relay';
-const RELAY_ENDPOINTS = new Set(['drivers', 'laps', 'stints', 'pit', 'position', 'intervals', 'race_control', 'weather', 'team_radio', 'car_data', 'location']);
+const RELAY_ENDPOINTS = new Set(['drivers', 'laps', 'stints', 'pit', 'position', 'intervals', 'race_control', 'weather', 'team_radio', 'car_data', 'location', 'session_result']);
 export const relay = { url: '', info: null, ok: false, key: null, state: null };
 
 function relayCandidates() {

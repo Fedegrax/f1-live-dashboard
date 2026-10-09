@@ -104,3 +104,15 @@ test('snapshot does not invent laps and a new session resets the model', () => {
   assert.equal(m.sessionKey, 6);
   assert.equal(m.status_().counts.drivers, 0);
 });
+
+test('live result reports official position and best lap even without recorded laps', () => {
+  const m = new LiveModel();
+  m.loadSnapshot({
+    SessionInfo: { Meeting: { Key: 9, Name: 'Test Grand Prix' }, Key: 100, Type: 'Practice', Name: 'Practice 1' },
+    SessionStatus: { Status: 'Started' },
+    DriverList: { 1: { RacingNumber: '1', Tla: 'AAA' }, 2: { RacingNumber: '2', Tla: 'BBB' }, 3: { RacingNumber: '3', Tla: 'CCC' } },
+    TimingData: { Lines: { 1: { Position: '2', BestLapTime: { Value: '1:30.200' } }, 2: { Position: '1', BestLapTime: { Value: '1:29.900' } }, 3: { Position: '3', BestLapTime: { Value: '' } } } },
+  }, T0);
+  const rows = m.table('session_result').sort((a, b) => a.position - b.position);
+  assert.deepEqual(rows.map(r => [r.driver_number, r.best_lap]), [[2, 89.9], [1, 90.2], [3, null]]);
+});
