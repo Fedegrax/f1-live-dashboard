@@ -304,9 +304,23 @@ export class LiveModel {
       case 'race_control': return withBase(this.rc);
       case 'weather': return withBase(this.weather);
       case 'team_radio': return withBase(this.radio);
-      case 'session_result': case 'starting_grid': return [];
+      case 'session_result': return this.liveResult();
+      case 'starting_grid': return [];
       default: return null;
     }
+  }
+
+  // Live order as shown on the official timing screen: position and best lap per driver (not final results).
+  liveResult() {
+    const b = this.base();
+    const rows = [];
+    for (const [n, st] of this.timing) {
+      const pos = num(st.Position);
+      if (pos == null) continue;
+      const bl = isObj(st.BestLapTime) && st.BestLapTime.Value ? parseLap(st.BestLapTime.Value) : null;
+      rows.push({ ...b, driver_number: n, position: pos, best_lap: bl, number_of_laps: num(st.NumberOfLaps), duration: null, gap_to_leader: null, dnf: false, dns: false, dsq: false });
+    }
+    return rows;
   }
 
   stintRows() {

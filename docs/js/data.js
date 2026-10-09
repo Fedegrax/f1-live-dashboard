@@ -155,7 +155,15 @@ export function prepare(raw) {
   for (const [n, arr] of ivBy) { arr.sort((a, b) => a.t - b.t); intervalLatest.set(n, arr[arr.length - 1]); }
 
   const results = new Map();
-  for (const r of raw.results || []) { ensure(r.driver_number); results.set(r.driver_number, r); }
+  for (const r of raw.results || []) {
+    ensure(r.driver_number); results.set(r.driver_number, r);
+    // the relay reports the official best lap even when it joined late and missed the lap itself
+    if (typeof r.best_lap === 'number' && !best.has(r.driver_number)) {
+      const b = { dur: r.best_lap, lap: null };
+      best.set(r.driver_number, b);
+      if (overall.lap == null || b.dur < overall.lap.dur) overall.lap = { ...b, driver: r.driver_number };
+    }
+  }
   const grid = new Map();
   for (const g of raw.grid || []) grid.set(g.driver_number, g.position);
   // starting_grid is often missing: the first published order is the grid

@@ -160,9 +160,9 @@ function selectSession(s) {
   renderActive();
 }
 
-// official results only count once the session is over; live order comes from lap times / positions
+// official results only count once the session is over; live order comes from lap times / positions, or from the relay's live order
 function buildModel() {
-  return prepare(S.state === 'live' ? { ...S.raw, results: [] } : S.raw);
+  return prepare(S.state === 'live' && !api.relayActive() ? { ...S.raw, results: [] } : S.raw);
 }
 
 let dirty = false;
